@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f172a" />
   <title>نظام إدارة حسابات الذهب والمسبك</title>
 
-  <!-- مكتبات فايبريس (Firebase) للمزامنة اللحظية السحابية -->
+  <!-- مكتبات فايبريس للمزامنة السحابية -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
@@ -56,47 +56,77 @@
     }
     .brand h1 { font-size: 1.15rem; font-weight: 700; color: var(--gold-light); }
     .brand p { font-size: 0.75rem; color: var(--text-muted); }
+
+    .main-container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      font-size: 1rem;
+      color: var(--gold);
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .btn-submit {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+    .btn-submit:hover {
+      filter: brightness(1.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    th {
+      background: var(--surface-2);
+      color: var(--gold-light);
+    }
   </style>
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-icon">💎</div>
-      <div>
-        <h1>نظام إدارة حسابات الذهب والمسبك</h1>
-        <p>متصل بالسحابة (محدث لحظياً)</p>
-      </div>
-    </div>
-  </header>
-
-  <div style="padding: 20px; text-align: center;">
-    <h2>جاري تحميل النظام والربط السحابي...</h2>
-  </div>
-
-  <script>
-    // إعدادات ربط فايبريس (استبدلها ببيانات مشروعك لاحقاً)
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-    
-    // تهيئة فايبريس وقاعدة البيانات
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    // دالة المزامنة والاستماع للتحديثات اللحظية بين الموبايل والكمبيوتر
-    db.collection("goldData").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-      let records = [];
-      snapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() });
-      });
-      console.log("تم تحديث البيانات سحابياً:", records);
-    });
-  </script>
-</body>
-</html>
