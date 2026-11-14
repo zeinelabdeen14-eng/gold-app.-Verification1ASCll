@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0f172a" />
-<title>نظام إدارة حسابات الذهب والمسبك — تطبيق أوفلاين (v37)</title>
+<title>نظام إدارة حسابات الذهب والمسبك</title>
 <style>
   :root {
     --bg: #0b1120;
@@ -189,27 +189,77 @@
     th { background: #eee !important; color: #000 !important; }
     td, .kpi-value { color: #000 !important; }
   }
+
+  .kpi-input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 800;
+    padding: 6px 10px;
+    width: 100%;
+    direction: ltr;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .kpi-input:focus {
+    border-color: var(--gold);
+    background: rgba(245, 158, 11, 0.08);
+  }
+  .period-banner {
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(245,158,11,0.12));
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+
+  /* Floating Action Button */
+  .fab-add {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #0f172a;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+    cursor: pointer;
+    z-index: 99;
+    border: none;
+    transition: 0.2s;
+  }
+  .fab-add:hover { transform: scale(1.08); filter: brightness(1.1); }
+
 </style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <div class="brand-icon">⚖️</div>
+<header class="topbar" style="padding: 6px 14px; min-height: 48px;">
+  <div class="brand" style="gap: 8px;">
+    <div class="brand-icon" style="width: 32px; height: 32px; font-size: 16px; border-radius: 8px;">⚖️</div>
     <div>
-      <h1>نظام إدارة حسابات الذهب والمسبك (v37)</h1>
-      <p>إدارة المشتريات اليومية، التحييف، الخزنة، المسبك، الذهب المباع، وسحوبات الموظفين</p>
+      <h1 style="font-size: 0.95rem; font-weight: 700; color: var(--gold-light);">نظام إدارة حسابات الذهب والمسبك (v60)</h1>
     </div>
   </div>
   <div class="topbar-actions no-print">
-    <span class="offline-badge"><span class="dot"></span> يعمل أوفلاين 100% (حفظ تلقائي)</span>
-    <button class="btn btn-ghost" onclick="exportBackupJSON()">💾 نسخة احتياطية (JSON)</button>
-    <label class="btn btn-ghost" style="cursor:pointer;">
-      📂 استعادة نسخة
-      <input type="file" accept=".json" style="display:none" onchange="importBackupJSON(event)" />
-    </label>
-    <button class="btn btn-blue" onclick="exportCSV()">📊 تصدير Excel/CSV</button>
-    <button class="btn btn-ghost" onclick="window.print()">🖨️ طباعة</button>
+    <button class="btn btn-ghost" id="undoBtn" onclick="undoLastAction()" style="padding: 4px 10px; font-size: 0.95rem; border-radius: 8px;" title="تراجع عن آخر عملية (Ctrl+Z)">↩️ تراجع</button>
+    <button class="btn btn-ghost" id="redoBtn" onclick="redoLastAction()" style="padding: 4px 10px; font-size: 0.95rem; border-radius: 8px;" title="إعادة العملية (Ctrl+Y)">↪️ إعادة</button>
+    <button class="btn btn-gold" onclick="toggleSidebar()" style="padding: 4px 8px; font-size: 1.1rem; border-radius: 8px;" title="إعدادات وأدوات النظام">⚙️</button>
   </div>
 </header>
 
@@ -241,7 +291,7 @@
         </select>
 
         <label>بحث بالعميل / رقم البيعة:</label>
-        <input type="text" id="searchPurchase" placeholder="اكتب اسم العميل أو البيعة..." oninput="renderPurchasesTable()" />
+        <input type="text" id="searchPurchase" placeholder="اكتب اسم العميل أو البيعة..." oninput="renderPurchasesTable()" onkeydown="if(event.key==='Enter'){openSearchModal();}" /> <button type="button" class="btn btn-gold" onclick="openSearchModal()" style="padding:7px 12px; font-size:0.8rem;" title="فتح نافذة نتائج البحث">🔍 بحث</button>
       </div>
 
       <div class="control-group">
@@ -251,32 +301,45 @@
       </div>
     </div>
 
-    <!-- KPI Cards -->
+    <!-- Period Management Banner -->
+    <div class="period-banner no-print">
+      <div class="control-group">
+        <span class="badge badge-gold" style="font-size:0.88rem; padding:6px 12px;" id="activePeriodBadge">الفترة الحالية: الفترة 1</span>
+        <label>استعراض فترة:</label>
+        <select id="periodSelect" onchange="switchPeriodView()" style="min-width:170px;"></select>
+        <button class="btn btn-ghost" onclick="toggleCurrentPeriodStatus()" id="togglePeriodBtn" style="padding:6px 10px; font-size:0.8rem;" title="فتح أو إغلاق الفترة المعروضة">🔓 فتح/إغلاق الفترة</button>
+      </div>
+      <div class="control-group">
+        <button class="btn btn-gold" onclick="closeAndStartNewPeriod()" title="إغلاق الفترة الحالية وترحيل الرصيد المتبقي كافتتاحي لفترة جديدة">🔒 إغلاق الفترة وبدء فترة جديدة</button>
+      </div>
+    </div>
+
+    <!-- KPI Cards (Editable) -->
     <div class="kpi-grid">
       <div class="kpi-card">
-        <div class="kpi-label">رصيد الخزنة الافتتاحي</div>
-        <div class="kpi-value num" id="kpiOpening">0.00</div>
+        <div class="kpi-label">رصيد الخزنة الافتتاحي (قابل للتعديل)</div>
+        <input type="number" step="0.01" class="kpi-input" id="kpiOpeningInput" onchange="onKpiManualChange('opening', this.value)" />
         <div class="kpi-sub" id="kpiMonthTitle">شهر 11</div>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-label">رصيد الخزنة المتبقي الفعلي</div>
-        <div class="kpi-value num" id="kpiRemaining">0.00</div>
-        <div class="kpi-sub">بعد خصم المشتريات والسحوبات والمصروفات + المحصلات</div>
+        <div class="kpi-label">رصيد الخزنة المتبقي الفعلي (قابل للتعديل)</div>
+        <input type="number" step="0.01" class="kpi-input" style="color:var(--green);" id="kpiRemainingInput" onchange="onKpiManualChange('remaining', this.value)" />
+        <div class="kpi-sub" id="kpiRemainingSub">بعد خصم مشتريات الذهب والسحوبات والمصروفات ومصروفات المسبك (+ محصلات المسبك)</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">إجمالي الذهب الصافي المحيف (جرام)</div>
-        <div class="kpi-value num" id="kpiNetWeight">0.00</div>
+        <input type="number" step="0.01" class="kpi-input" style="color:var(--gold-light);" id="kpiNetWeightInput" onchange="onKpiManualChange('netWeight', this.value)" />
         <div class="kpi-sub" id="kpiCountSales">عدد البيعات: 0</div>
       </div>
       <div class="kpi-card blue">
         <div class="kpi-label">إجمالي الوزن الخام للشهر (جرام)</div>
-        <div class="kpi-value num" id="kpiRawWeight">0.00</div>
+        <input type="number" step="0.01" class="kpi-input" id="kpiRawWeightInput" onchange="onKpiManualChange('rawWeight', this.value)" />
         <div class="kpi-sub" id="kpiTotalPaidSub">إجمالي المنصرف للذهب: 0.00 ج.م</div>
       </div>
       <div class="kpi-card red">
-        <div class="kpi-label">إجمالي السحوبات والمصروفات</div>
-        <div class="kpi-value num" id="kpiExpensesTotal">0.00</div>
-        <div class="kpi-sub" id="kpiFoundryInSub">محصلات المسبك: +0.00 ج.م</div>
+        <div class="kpi-label">إجمالي السحوبات والمصروفات (قابل للتعديل)</div>
+        <input type="number" step="0.01" class="kpi-input" style="color:var(--red);" id="kpiExpensesInput" onchange="onKpiManualChange('expenses', this.value)" />
+        <div class="kpi-sub" id="kpiFoundryInSub">محصلات المسبك والبيعات: +0.00 ج.م</div>
       </div>
     </div>
 
@@ -702,39 +765,170 @@
   const INITIAL_WITHDRAWALS = [{"id": "emp-1", "month": "شهر 11", "date": "", "employee": "مصطفى طاهر", "reason": "", "amount": 35000.0, "notes": "مصطفى"}, {"id": "emp-2", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 10000.0, "notes": "سيراميك"}, {"id": "emp-3", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 9200.0, "notes": "طعام"}, {"id": "emp-4", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 5000.0, "notes": "باب مصفح وكياس"}, {"id": "emp-5", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1900.0, "notes": "شبكة"}, {"id": "emp-6", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1500.0, "notes": "طعام"}, {"id": "emp-7", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1000.0, "notes": "مثبتات سلك للكاميرات"}, {"id": "emp-8", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 500.0, "notes": "غسالة"}, {"id": "emp-9", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 500.0, "notes": "بخور"}, {"id": "emp-10", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 150.0, "notes": "طعام"}, {"id": "emp-11", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 100.0, "notes": "قهوة"}, {"id": "emp-12", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 200.0, "notes": "طعام"}, {"id": "emp-13", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 400.0, "notes": "نظافة"}, {"id": "emp-14", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 275.0, "notes": "سكر"}, {"id": "emp-15", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 3030.0, "notes": ""}, {"id": "emp-16", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 380.0, "notes": ""}, {"id": "emp-17", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 520.0, "notes": ""}, {"id": "emp-18", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 50.0, "notes": ""}, {"id": "emp-19", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 3000.0, "notes": ""}, {"id": "emp-20", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 155.0, "notes": ""}, {"id": "emp-21", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 400.0, "notes": ""}, {"id": "emp-22", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 150.0, "notes": ""}, {"id": "emp-23", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 10000.0, "notes": ""}, {"id": "emp-24", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 610.0, "notes": ""}, {"id": "emp-25", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 200.0, "notes": ""}];
   const INITIAL_SOLD = [];
 
-  const STORAGE_KEY = "gold_accounting_system_v37_offline";
+  const STORAGE_KEY = "gold_accounting_system_v60_offline";
 
   let state = {
+    currentPeriodId: 1,
+    viewingPeriodId: 1,
+    periods: [
+      { id: 1, name: "الفترة 1 (الأساسية)", createdAt: new Date().toLocaleDateString("ar-EG"), closed: false }
+    ],
     openingBalances: {
-      "شهر 1": 500000, "شهر 2": 0, "شهر 3": 0, "شهر 4": 0,
-      "شهر 5": 0, "شهر 6": 0, "شهر 7": 0, "شهر 8": 0,
-      "شهر 9": 0, "شهر 10": 0, "شهر 11": 75000000, "شهر 12": 0
+      "1_شهر 1": 500000, "1_شهر 2": 0, "1_شهر 3": 0, "1_شهر 4": 0,
+      "1_شهر 5": 0, "1_شهر 6": 0, "1_شهر 7": 0, "1_شهر 8": 0,
+      "1_شهر 9": 0, "1_شهر 10": 0, "1_شهر 11": 75000000, "1_شهر 12": 0
     },
-    sales: INITIAL_SALES,
+    kpiOverrides: {},
+    sales: INITIAL_SALES.map(x => Object.assign({}, x, { periodId: 1 })),
     casting: [],
-    soldGold: INITIAL_SOLD,
+    soldGold: INITIAL_SOLD.map(x => Object.assign({}, x, { periodId: 1 })),
     foundryIn: [],
     foundryOut: [],
-    withdrawals: INITIAL_WITHDRAWALS
+    withdrawals: INITIAL_WITHDRAWALS.map(x => Object.assign({}, x, { periodId: 1 }))
   };
+
+  function pKey(month, pid) {
+    const p = pid || state.viewingPeriodId || state.currentPeriodId || 1;
+    return `${p}_${month}`;
+  }
 
   function loadState() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("gold_accounting_system_v39_offline") || localStorage.getItem("gold_accounting_system_v38_offline") || localStorage.getItem("gold_accounting_system_v37_offline");
       if (saved) {
         const parsed = JSON.parse(saved);
         state = Object.assign(state, parsed);
         if (!state.soldGold) state.soldGold = [];
+        if (!state.periods || !state.periods.length) {
+          state.periods = [{ id: 1, name: "الفترة 1 (الأساسية)", createdAt: new Date().toLocaleDateString("ar-EG"), closed: false }];
+          state.currentPeriodId = 1;
+          state.viewingPeriodId = 1;
+        }
+        if (!state.kpiOverrides) state.kpiOverrides = {};
+        MONTHS.forEach(m => {
+          if (state.openingBalances[m] !== undefined && state.openingBalances[`1_${m}`] === undefined) {
+            state.openingBalances[`1_${m}`] = state.openingBalances[m];
+          }
+        });
+        ["sales", "casting", "soldGold", "foundryIn", "foundryOut", "withdrawals"].forEach(col => {
+          state[col] = (state[col] || []).map(item => item.periodId ? item : Object.assign({}, item, { periodId: 1 }));
+        });
       }
     } catch (e) {
       console.error("Failed to load local storage", e);
     }
   }
 
+
+  let appHistory = [];
+  let appRedoStack = [];
+  const MAX_HISTORY = 30;
+
+  function pushStateToHistory() {
+    try {
+      const snapshot = JSON.stringify({
+        sales: state.sales,
+        casting: state.casting,
+        soldGold: state.soldGold,
+        foundryIn: state.foundryIn,
+        foundryOut: state.foundryOut,
+        withdrawals: state.withdrawals,
+        openingBalances: state.openingBalances,
+        kpiOverrides: state.kpiOverrides,
+        periods: state.periods,
+        currentPeriodId: state.currentPeriodId,
+        viewingPeriodId: state.viewingPeriodId
+      });
+      appHistory.push(snapshot);
+      if (appHistory.length > MAX_HISTORY) appHistory.shift();
+      appRedoStack = [];
+      updateUndoRedoButtonsState();
+    } catch(e){}
+  }
+
+  function recordAction() {
+    pushStateToHistory();
+  }
+
+  function undoLastAction() {
+    if (appHistory.length === 0) {
+      showToast("لا توجد عمليات للتراجع عنها");
+      return;
+    }
+    try {
+      const currentSnapshot = JSON.stringify({
+        sales: state.sales,
+        casting: state.casting,
+        soldGold: state.soldGold,
+        foundryIn: state.foundryIn,
+        foundryOut: state.foundryOut,
+        withdrawals: state.withdrawals,
+        openingBalances: state.openingBalances,
+        kpiOverrides: state.kpiOverrides,
+        periods: state.periods,
+        currentPeriodId: state.currentPeriodId,
+        viewingPeriodId: state.viewingPeriodId
+      });
+      appRedoStack.push(currentSnapshot);
+
+      const prevSnapshot = appHistory.pop();
+      const parsed = JSON.parse(prevSnapshot);
+      state = Object.assign(state, parsed);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      updateUndoRedoButtonsState();
+      showToast("↩️ تم التراجع عن آخر عملية بنجاح");
+    } catch(e) {
+      alert("تعذر التراجع: " + e.message);
+    }
+  }
+
+  function redoLastAction() {
+    if (appRedoStack.length === 0) {
+      showToast("لا توجد عمليات لإعادتها");
+      return;
+    }
+    try {
+      const currentSnapshot = JSON.stringify({
+        sales: state.sales,
+        casting: state.casting,
+        soldGold: state.soldGold,
+        foundryIn: state.foundryIn,
+        foundryOut: state.foundryOut,
+        withdrawals: state.withdrawals,
+        openingBalances: state.openingBalances,
+        kpiOverrides: state.kpiOverrides,
+        periods: state.periods,
+        currentPeriodId: state.currentPeriodId,
+        viewingPeriodId: state.viewingPeriodId
+      });
+      appHistory.push(currentSnapshot);
+
+      const nextSnapshot = appRedoStack.pop();
+      const parsed = JSON.parse(nextSnapshot);
+      state = Object.assign(state, parsed);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      updateUndoRedoButtonsState();
+      showToast("↪️ تم إعادة العملية بنجاح");
+    } catch(e) {
+      alert("تعذر الإعادة: " + e.message);
+    }
+  }
+
+  function updateUndoRedoButtonsState() {
+    const undoBtn = document.getElementById("undoBtn");
+    const redoBtn = document.getElementById("redoBtn");
+    if (undoBtn) undoBtn.style.opacity = appHistory.length > 0 ? "1" : "0.4";
+    if (redoBtn) redoBtn.style.opacity = appRedoStack.length > 0 ? "1" : "0.4";
+  }
+
+
   function saveState(msg) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       if (msg) showToast(msg);
+      updateUndoRedoButtonsState();
     } catch (e) {
       alert("تعذر الحفظ المحلي: " + e.message);
     }
@@ -769,7 +963,6 @@
     });
   }
 
-  // Navigation Tabs
   document.querySelectorAll(".nav-tab").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
@@ -781,7 +974,6 @@
     });
   });
 
-  // Form calculations
   function recalcPurchaseForm() {
     const raw = parseFloat(document.getElementById("pRawWeight").value) || 0;
     const sh = parseFloat(document.getElementById("pShishna").value) || 0;
@@ -792,7 +984,7 @@
     document.getElementById("pNetWeight").value = net ? net.toFixed(2) : "";
 
     if (net > 0 && price > 0) {
-      const total = Math.round(net * price);
+      const total = Math.round((net * price + Number.EPSILON) * 100) / 100;
       document.getElementById("pCalcAmount").value = total;
       document.getElementById("pPaidAmount").value = total;
     }
@@ -804,9 +996,10 @@
   }
 
   function addPurchase(e) {
+    recordAction();
     e.preventDefault();
     const month = document.getElementById("monthSelect").value;
-    const monthSales = state.sales.filter(s => s.month === month);
+    const monthSales = state.sales.filter(s => s.month === month && (s.periodId || 1) === state.viewingPeriodId);
     const nextNum = monthSales.length + 1;
 
     const raw = parseFloat(document.getElementById("pRawWeight").value) || 0;
@@ -819,6 +1012,7 @@
 
     state.sales.push({
       id: "sale-" + Date.now(),
+      periodId: state.viewingPeriodId,
       month,
       week: document.getElementById("pWeek").value,
       day: document.getElementById("pDay").value.trim() || "يوم السبت",
@@ -846,6 +1040,7 @@
   }
 
   function deletePurchase(id) {
+    recordAction();
     if (!confirm("هل أنت متأكد من حذف هذه البيعة؟")) return;
     state.sales = state.sales.filter(s => s.id !== id);
     saveState("تم حذف البيعة");
@@ -853,39 +1048,150 @@
   }
 
   function clearCurrentMonthSales() {
+    recordAction();
     const month = document.getElementById("monthSelect").value;
-    if (!confirm(`هل تريد مسح جميع بيعات ${month}؟`)) return;
-    state.sales = state.sales.filter(s => s.month !== month);
-    saveState("تم مسح بيانات الشهر");
+    const confirmation = prompt(`تحذير أمان: أنت على وشك مسح جميع بيعات وحركات (${month}) نهائياً!
+
+لتأكيد العملية وحماية بياناتك من الخطأ، اكتب كلمة "مسح" بالأسفل واضغط موافق:`);
+    if (confirmation !== "مسح") {
+      if (confirmation !== null) alert("تم إلغاء عملية مسح بيانات الشهر لعدم مطابقة كلمة التأكيد.");
+      return;
+    }
+    state.sales = state.sales.filter(s => !(s.month === month && (s.periodId || 1) === state.viewingPeriodId));
+    saveState("تم مسح بيانات الشهر بنجاح");
     renderAll();
   }
 
-  function getMonthStats(month) {
-    const sales = state.sales.filter(s => s.month === month);
-    const rawWeight = sales.reduce((acc, s) => acc + (Number(s.rawWeight) || 0), 0);
-    const netWeight = sales.reduce((acc, s) => acc + (Number(s.netWeight) || 0), 0);
+  function getMonthStats(month, pid) {
+    const targetPid = pid || state.viewingPeriodId || 1;
+    const sales = state.sales.filter(s => s.month === month && (s.periodId || 1) === targetPid);
+    const soldList = (state.soldGold || []).filter(s => s.month === month && (s.periodId || 1) === targetPid);
+
+    let rawWeight = sales.reduce((acc, s) => acc + (Number(s.rawWeight) || 0), 0);
+    let netWeight = sales.reduce((acc, s) => acc + (Number(s.netWeight) || 0), 0);
     const totalCalc = sales.reduce((acc, s) => acc + (Number(s.calcAmount) || 0), 0);
     const totalPaid = sales.reduce((acc, s) => acc + (Number(s.paidAmount) || 0), 0);
+    const soldRevenue = soldList.reduce((acc, s) => acc + (Number(s.totalSell) || 0), 0);
 
-    const fIn = state.foundryIn.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
-    const fOut = state.foundryOut.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
-    const wOut = state.withdrawals.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
-    const castNet = state.casting.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.netWeight) || 0), 0);
+    const fIn = state.foundryIn.filter(x => x.month === month && (x.periodId || 1) === targetPid).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const fOut = state.foundryOut.filter(x => x.month === month && (x.periodId || 1) === targetPid).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const wOut = state.withdrawals.filter(x => x.month === month && (x.periodId || 1) === targetPid).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const castNet = state.casting.filter(x => x.month === month && (x.periodId || 1) === targetPid).reduce((acc, x) => acc + (Number(x.netWeight) || 0), 0);
 
-    const opening = Number(state.openingBalances[month] || 0);
-    const remaining = opening + fIn - totalPaid - wOut - fOut;
+    const key = pKey(month, targetPid);
+    const ov = state.kpiOverrides[key] || {};
 
-    return { sales, rawWeight, netWeight, totalCalc, totalPaid, fIn, fOut, wOut, castNet, opening, remaining };
+    const opening = Number(state.openingBalances[key] !== undefined ? state.openingBalances[key] : (targetPid === 1 ? (state.openingBalances[month] || 0) : 0));
+    if (ov.rawWeight !== undefined) rawWeight = Number(ov.rawWeight);
+    if (ov.netWeight !== undefined) netWeight = Number(ov.netWeight);
+
+    const expensesTotal = ov.expenses !== undefined ? Number(ov.expenses) : (wOut + fOut);
+    const autoRemaining = opening + fIn - totalPaid - expensesTotal;
+    const remaining = ov.remaining !== undefined ? Number(ov.remaining) : autoRemaining;
+
+    return { sales, soldRevenue, rawWeight, netWeight, totalCalc, totalPaid, fIn, fOut, wOut, expensesTotal, castNet, opening, remaining, hasOverrides: Object.keys(ov).length > 0 };
+  }
+
+  function onKpiManualChange(field, val) {
+    recordAction();
+    const month = document.getElementById("monthSelect").value;
+    const key = pKey(month);
+    const num = parseFloat(val);
+
+    if (field === "opening") {
+      state.openingBalances[key] = isNaN(num) ? 0 : num;
+      if (state.kpiOverrides[key]) delete state.kpiOverrides[key].remaining;
+      saveState("تم تعديل رصيد الخزنة الافتتاحي");
+      renderAll();
+      return;
+    }
+
+    if (!state.kpiOverrides[key]) state.kpiOverrides[key] = {};
+    if (val === "" || isNaN(num)) {
+      delete state.kpiOverrides[key][field];
+    } else {
+      state.kpiOverrides[key][field] = num;
+      if (field === "expenses") {
+        delete state.kpiOverrides[key].remaining;
+      }
+    }
+    saveState("تم تعديل القيمة وحفظها تلقائياً");
+    renderAll();
+  }
+
+  function renderPeriodControls() {
+    const sel = document.getElementById("periodSelect");
+    if (!sel) return;
+    sel.innerHTML = state.periods.map(p =>
+      `<option value="${p.id}" ${p.id === state.viewingPeriodId ? "selected" : ""}>${p.name} ${p.closed ? "(مغلقة)" : "(نشطة)"}</option>`
+    ).join("");
+    const activeP = state.periods.find(p => p.id === state.viewingPeriodId) || state.periods[0];
+    document.getElementById("activePeriodBadge").textContent = `الفترة المعروضة: ${activeP.name}`;
+    const btn = document.getElementById("togglePeriodBtn");
+    if (btn && activeP) {
+      btn.textContent = activeP.closed ? "🔓 إعادة فتح الفترة" : "🔒 قفل مؤقت";
+      btn.className = activeP.closed ? "btn btn-green" : "btn btn-ghost";
+    }
+  }
+
+  function toggleCurrentPeriodStatus() {
+    recordAction();
+    const p = state.periods.find(item => item.id === (state.viewingPeriodId || 1));
+    if (!p) return;
+    p.closed = !p.closed;
+    saveState(p.closed ? `تم إغلاق ${p.name}` : `تم إعادة فتح ${p.name} بنجاح لتتمكن من التعديل والإضافة فيها`);
+    renderAll();
+  }
+
+  function switchPeriodView() {
+    state.viewingPeriodId = parseInt(document.getElementById("periodSelect").value, 10) || 1;
+    saveState("تم التبديل إلى " + (state.periods.find(p => p.id === state.viewingPeriodId)?.name || ""));
+    renderAll();
+  }
+
+  function closeAndStartNewPeriod() {
+    recordAction();
+    const month = document.getElementById("monthSelect").value;
+    const currentStats = getMonthStats(month, state.viewingPeriodId);
+    const remainingToCarry = currentStats.remaining;
+
+    const msg = `هل تريد إغلاق الفترة الحالية (${month}) وترحيل رصيد الخزنة المتبقي (${fmt(remainingToCarry)} ج.م) كرصيد افتتاحي لفترة جديدة؟
+
+ملاحظة: ستظل جميع بيانات الفترة السابقة محفوظة ويمكنك الرجوع إليها في أي وقت من قائمة الفترات.`;
+    if (!confirm(msg)) return;
+
+    const curPeriod = state.periods.find(p => p.id === state.viewingPeriodId);
+    if (curPeriod) curPeriod.closed = true;
+
+    const nextId = Math.max(...state.periods.map(p => p.id)) + 1;
+    const newPeriod = {
+      id: nextId,
+      name: `الفترة ${nextId}`,
+      createdAt: new Date().toLocaleDateString("ar-EG"),
+      closed: false
+    };
+    state.periods.push(newPeriod);
+    state.currentPeriodId = nextId;
+    state.viewingPeriodId = nextId;
+
+    state.openingBalances[pKey(month, nextId)] = remainingToCarry;
+
+    saveState(`تم بدء الفترة ${nextId} وترحيل رصيد (${fmt(remainingToCarry)} ج.م) بنجاح!`);
+    renderAll();
   }
 
   function updateOpeningBalance() {
+    recordAction();
     const month = document.getElementById("monthSelect").value;
-    state.openingBalances[month] = parseFloat(document.getElementById("openingBalanceInput").value) || 0;
+    const key = pKey(month);
+    state.openingBalances[key] = parseFloat(document.getElementById("openingBalanceInput").value) || 0;
+    if (state.kpiOverrides[key]) delete state.kpiOverrides[key].remaining;
     saveState("تم تحديث الرصيد الافتتاحي");
     renderAll();
   }
 
   function carryOverFromPrevMonth() {
+    recordAction();
     const month = document.getElementById("monthSelect").value;
     const idx = MONTHS.indexOf(month);
     if (idx <= 0) {
@@ -894,12 +1200,18 @@
     }
     const prevMonth = MONTHS[idx - 1];
     const prevStats = getMonthStats(prevMonth);
-    state.openingBalances[month] = prevStats.remaining;
+    const key = pKey(month);
+    state.openingBalances[key] = prevStats.remaining;
+    if (state.kpiOverrides[key]) delete state.kpiOverrides[key].remaining;
     saveState(`تم ترحيل الرصيد (${fmt(prevStats.remaining)}) من ${prevMonth}`);
     renderAll();
   }
 
   function renderPurchasesTable() {
+    const activeElId = document.activeElement ? document.activeElement.id : null;
+    const selectionStart = document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement.selectionStart : null;
+    const selectionEnd = document.activeElement && document.activeElement.tagName === 'INPUT' ? document.activeElement.selectionEnd : null;
+    renderPeriodControls();
     const month = document.getElementById("monthSelect").value;
     const weekF = document.getElementById("weekFilter").value;
     const q = document.getElementById("searchPurchase").value.trim().toLowerCase();
@@ -909,23 +1221,27 @@
     document.getElementById("kpiMonthTitle").textContent = month;
     document.getElementById("tableMonthLabel").textContent = month;
 
-    document.getElementById("kpiOpening").textContent = fmt(stats.opening) + " ج.م";
-    document.getElementById("kpiRemaining").textContent = fmt(stats.remaining) + " ج.م";
-    document.getElementById("kpiNetWeight").textContent = fmt(stats.netWeight) + " جم";
+    document.getElementById("kpiOpeningInput").value = stats.opening.toFixed(2);
+    document.getElementById("kpiRemainingInput").value = stats.remaining.toFixed(2);
+    document.getElementById("kpiNetWeightInput").value = stats.netWeight.toFixed(2);
     document.getElementById("kpiCountSales").textContent = `عدد البيعات: ${stats.sales.length}`;
-    document.getElementById("kpiRawWeight").textContent = fmt(stats.rawWeight) + " جم";
+    document.getElementById("kpiRawWeightInput").value = stats.rawWeight.toFixed(2);
     document.getElementById("kpiTotalPaidSub").textContent = `إجمالي المنصرف للذهب: ${fmt(stats.totalPaid)} ج.م`;
-    document.getElementById("kpiExpensesTotal").textContent = fmt(stats.wOut + stats.fOut) + " ج.م";
-    document.getElementById("kpiFoundryInSub").textContent = `محصلات المسبك: +${fmt(stats.fIn)} ج.م`;
+    document.getElementById("kpiExpensesInput").value = stats.expensesTotal.toFixed(2);
+    document.getElementById("kpiFoundryInSub").textContent = `سحوبات: ${fmt(stats.wOut)} | مصروفات مسبك: ${fmt(stats.fOut)} | محصلات: +${fmt(stats.fIn)}`;
 
-    let filtered = stats.sales;
-    if (weekF !== "ALL") filtered = filtered.filter(s => s.week === weekF);
+    let filtered;
     if (q) {
+      filtered = state.sales.filter(s => (s.periodId || 1) === (state.viewingPeriodId || 1));
       filtered = filtered.filter(s =>
         (s.client && s.client.toLowerCase().includes(q)) ||
         (s.code && s.code.toLowerCase().includes(q)) ||
-        (s.notes && s.notes.toLowerCase().includes(q))
+        (s.notes && s.notes.toLowerCase().includes(q)) ||
+        (s.month && s.month.toLowerCase().includes(q))
       );
+    } else {
+      filtered = stats.sales;
+      if (weekF !== "ALL") filtered = filtered.filter(s => s.week === weekF);
     }
 
     const tbody = document.getElementById("purchasesTbody");
@@ -934,7 +1250,13 @@
     } else {
       tbody.innerHTML = filtered.map((s, idx) => `
         <tr>
-          <td><span class="badge badge-gold">${s.code || ('بيعة ' + (idx+1))}</span></td>
+          <td>
+            <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+              <button class="btn btn-ghost" style="padding:2px 5px; font-size:0.7rem;" onclick="movePurchase('${s.id}', -1)" title="تحريك لأعلى">▲</button>
+              <span class="badge badge-gold">${s.code || ('بيعة ' + (idx+1))}</span>
+              <button class="btn btn-ghost" style="padding:2px 5px; font-size:0.7rem;" onclick="movePurchase('${s.id}', 1)" title="تحريك لأسفل">▼</button>
+            </div>
+          </td>
           <td>${s.week || ''} - ${s.day || ''}</td>
           <td style="font-weight:700;">${s.client || '—'}</td>
           <td class="num">${fmt(s.rawWeight)}</td>
@@ -945,7 +1267,10 @@
           <td class="num">${fmt(s.calcAmount)}</td>
           <td class="num" style="color:var(--green); font-weight:700;">${fmt(s.paidAmount)}</td>
           <td style="color:var(--text-muted); font-size:0.8rem;">${s.notes || ''}</td>
-          <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deletePurchase('${s.id}')">✕</button></td>
+          <td class="no-print" style="display:flex; gap:6px; justify-content:center; align-items:center;">
+            <button class="btn btn-blue" style="padding:4px 6px; font-size:0.75rem;" onclick="openEditPurchase('${s.id}')" title="تعديل">✏️</button>
+            <button class="btn btn-red" style="padding:4px 6px; font-size:0.75rem;" onclick="deletePurchase('${s.id}')" title="حذف">✕</button>
+          </td>
         </tr>
       `).join("");
     }
@@ -954,6 +1279,18 @@
     const sumNet = filtered.reduce((a, b) => a + (Number(b.netWeight) || 0), 0);
     const sumCalc = filtered.reduce((a, b) => a + (Number(b.calcAmount) || 0), 0);
     const sumPaid = filtered.reduce((a, b) => a + (Number(b.paidAmount) || 0), 0);
+
+    if (activeElId) {
+      setTimeout(() => {
+        const el = document.getElementById(activeElId);
+        if (el) {
+          el.focus();
+          if (selectionStart !== null && typeof el.setSelectionRange === 'function') {
+            try { el.setSelectionRange(selectionStart, selectionEnd); } catch(e){}
+          }
+        }
+      }, 0);
+    }
 
     document.getElementById("purchasesTfoot").innerHTML = `
       <tr style="background:var(--surface-2); font-weight:800;">
@@ -970,7 +1307,6 @@
     `;
   }
 
-  // Casting
   function recalcCastingForm() {
     const raw = parseFloat(document.getElementById("cRaw").value) || 0;
     const sh = parseFloat(document.getElementById("cShishna").value) || 0;
@@ -980,6 +1316,7 @@
   }
 
   function addCasting(e) {
+    recordAction();
     e.preventDefault();
     const raw = parseFloat(document.getElementById("cRaw").value) || 0;
     const sh = parseFloat(document.getElementById("cShishna").value) || 875;
@@ -988,6 +1325,7 @@
 
     state.casting.push({
       id: "cast-" + Date.now(),
+      periodId: state.viewingPeriodId,
       month: document.getElementById("cMonth").value,
       date: document.getElementById("cDate").value,
       rawWeight: raw,
@@ -1004,6 +1342,7 @@
   }
 
   function deleteCasting(id) {
+    recordAction();
     state.casting = state.casting.filter(x => x.id !== id);
     saveState("تم الحذف");
     renderAll();
@@ -1011,14 +1350,15 @@
 
   function renderCasting() {
     const tbody = document.getElementById("castingTbody");
-    const totalNet = state.casting.reduce((a, b) => a + (Number(b.netWeight) || 0), 0);
+    const cList = state.casting.filter(x => (x.periodId || 1) === state.viewingPeriodId);
+    const totalNet = cList.reduce((a, b) => a + (Number(b.netWeight) || 0), 0);
     document.getElementById("castingSummaryBadge").textContent = `إجمالي الصافي: ${fmt(totalNet)} جرام`;
 
-    if (state.casting.length === 0) {
+    if (cList.length === 0) {
       tbody.innerHTML = `<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد سبائك مسجلة بعد</td></tr>`;
       return;
     }
-    tbody.innerHTML = state.casting.map((c, i) => `
+    tbody.innerHTML = cList.map((c, i) => `
       <tr>
         <td>${i + 1}</td>
         <td><span class="badge">${c.month}</span></td>
@@ -1033,15 +1373,15 @@
     `).join("");
   }
 
-  // Sold Gold (الذهب المباع)
   function recalcSoldForm() {
     const w = parseFloat(document.getElementById("sgWeight").value) || 0;
     const sp = parseFloat(document.getElementById("sgSellPrice").value) || 0;
-    const total = w * sp;
-    document.getElementById("sgTotalSell").value = total ? total.toFixed(2) : "";
+    const total = Math.round((w * sp + Number.EPSILON) * 100) / 100;
+    document.getElementById("sgTotalSell").value = total > 0 ? total.toFixed(2) : "";
   }
 
   function addSoldGold(e) {
+    recordAction();
     e.preventDefault();
     const w = parseFloat(document.getElementById("sgWeight").value) || 0;
     const bp = parseFloat(document.getElementById("sgBuyPrice").value) || 0;
@@ -1050,6 +1390,7 @@
 
     state.soldGold.push({
       id: "sold-" + Date.now(),
+      periodId: state.viewingPeriodId,
       month: document.getElementById("sgMonth").value,
       date: document.getElementById("sgDate").value,
       name: document.getElementById("sgName").value.trim(),
@@ -1071,6 +1412,7 @@
   }
 
   function deleteSoldGold(id) {
+    recordAction();
     state.soldGold = state.soldGold.filter(x => x.id !== id);
     saveState("تم حذف حركة البيع");
     renderAll();
@@ -1078,7 +1420,7 @@
 
   function renderSoldGold() {
     const tbody = document.getElementById("soldTbody");
-    const list = state.soldGold;
+    const list = (state.soldGold || []).filter(x => (x.periodId || 1) === state.viewingPeriodId);
     const totalSellSum = list.reduce((a, b) => a + (Number(b.totalSell) || 0), 0);
     const totalWeightSum = list.reduce((a, b) => a + (Number(b.weight) || 0), 0);
     document.getElementById("soldSummaryBadge").textContent = `إجمالي إيرادات البيع: ${fmt(totalSellSum)} ج.م`;
@@ -1115,12 +1457,13 @@
     `;
   }
 
-  // Foundry In & Out
   function addLedgerItem(e, type) {
+    recordAction();
     e.preventDefault();
     const prefix = type === "foundryIn" ? "fi" : "fo";
     state[type].push({
       id: prefix + "-" + Date.now(),
+      periodId: state.viewingPeriodId,
       month: document.getElementById(prefix + "Month").value,
       date: document.getElementById(prefix + "Date").value,
       title: document.getElementById(prefix + "Title").value.trim(),
@@ -1137,6 +1480,7 @@
   }
 
   function deleteLedgerItem(type, id) {
+    recordAction();
     state[type] = state[type].filter(x => x.id !== id);
     saveState("تم الحذف");
     renderAll();
@@ -1144,7 +1488,7 @@
 
   function renderLedger(type) {
     const prefix = type === "foundryIn" ? "fi" : "fo";
-    const list = state[type];
+    const list = (state[type] || []).filter(x => (x.periodId || 1) === state.viewingPeriodId);
     const total = list.reduce((a, b) => a + (Number(b.amount) || 0), 0);
     document.getElementById(prefix + "TotalBadge").textContent = `الإجمالي: ${fmt(total)} ج.م`;
 
@@ -1167,11 +1511,12 @@
     `).join("");
   }
 
-  // Withdrawals
   function addWithdrawal(e) {
+    recordAction();
     e.preventDefault();
     state.withdrawals.push({
       id: "emp-" + Date.now(),
+      periodId: state.viewingPeriodId,
       month: document.getElementById("wMonth").value,
       date: document.getElementById("wDate").value,
       employee: document.getElementById("wEmployee").value.trim(),
@@ -1188,21 +1533,23 @@
   }
 
   function deleteWithdrawal(id) {
+    recordAction();
     state.withdrawals = state.withdrawals.filter(x => x.id !== id);
     saveState("تم الحذف");
     renderAll();
   }
 
   function renderWithdrawals() {
-    const total = state.withdrawals.reduce((a, b) => a + (Number(b.amount) || 0), 0);
+    const wList = (state.withdrawals || []).filter(x => (x.periodId || 1) === state.viewingPeriodId);
+    const total = wList.reduce((a, b) => a + (Number(b.amount) || 0), 0);
     document.getElementById("wTotalBadge").textContent = `الإجمالي: ${fmt(total)} ج.م`;
 
     const tbody = document.getElementById("wTbody");
-    if (state.withdrawals.length === 0) {
+    if (wList.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" style="padding:20px; color:var(--text-muted);">لا توجد مسحوبات</td></tr>`;
       return;
     }
-    tbody.innerHTML = state.withdrawals.map((w, i) => `
+    tbody.innerHTML = wList.map((w, i) => `
       <tr>
         <td>${i + 1}</td>
         <td><span class="badge">${w.month}</span></td>
@@ -1216,7 +1563,6 @@
     `).join("");
   }
 
-  // Annual Summary
   function renderAnnual() {
     let tRaw = 0, tNet = 0, tPaid = 0, tCast = 0, tFIn = 0, tFOut = 0, tWOut = 0;
     const rowsHtml = MONTHS.map(m => {
@@ -1260,7 +1606,6 @@
     `;
   }
 
-  // Quick Calculators
   function runQuickCalc() {
     const w = parseFloat(document.getElementById("qcWeight").value) || 0;
     const sh = parseFloat(document.getElementById("qcShishna").value) || 0;
@@ -1287,12 +1632,11 @@
     }
   }
 
-  // Backup & Export
   function exportBackupJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `نسخة_احتياطية_حسابات_الذهب_v37_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `نسخة_احتياطية_حسابات_الذهب_${new Date().toISOString().slice(0,10)}.json`;
     a.click();
     showToast("تم تنزيل النسخة الاحتياطية");
   }
@@ -1345,8 +1689,454 @@
   }
 
   loadState();
+  updateUndoRedoButtonsState();
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if (e.shiftKey) {
+        redoLastAction();
+      } else {
+        undoLastAction();
+      }
+      e.preventDefault();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      redoLastAction();
+      e.preventDefault();
+    }
+  });
+
   initSelects();
   renderAll();
 </script>
+
+<!-- Sidebar Drawer -->
+<div id="sidebarOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99; display:none;" onclick="toggleSidebar()"></div>
+<div id="sideDrawer" style="position:fixed; top:0; right:-320px; width:300px; height:100%; background:var(--surface); border-left:1px solid var(--border); box-shadow:-5px 0 25px rgba(0,0,0,0.5); z-index:100; transition:0.3s ease; padding:20px; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+  <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:12px;">
+    <h3 style="color:var(--gold-light); font-size:1.1rem;">⚙️ أدوات النظام والنسخ</h3>
+    <button class="btn btn-red" style="padding:4px 10px;" onclick="toggleSidebar()">✕</button>
+  </div>
+  <div style="display:flex; align-items:center; gap:6px; background:var(--green-bg); color:var(--green); border:1px solid rgba(16,185,129,0.3); padding:8px 12px; border-radius:8px; font-size:0.82rem; font-weight:600;">
+    <span class="dot"></span> يعمل أوفلاين 100% (حفظ تلقائي)
+  </div>
+  <button class="btn btn-gold" onclick="openDesktopCalculator()" style="width:100%; justify-content:flex-start;">🧮 الآلة الحاسبة (تشبه الكمبيوتر)</button>
+  <button class="btn btn-ghost" onclick="exportBackupJSON()" style="width:100%; justify-content:flex-start;">💾 نسخة احتياطية (JSON)</button>
+  <label class="btn btn-ghost" style="cursor:pointer; width:100%; justify-content:flex-start; display:flex; align-items:center; gap:6px;">
+    📂 استعادة نسخة احتياطية
+    <input type="file" accept=".json" style="display:none" onchange="importBackupJSON(event)" />
+  </label>
+  <button class="btn btn-blue" onclick="exportCSV()" style="width:100%; justify-content:flex-start;">📊 تصدير Excel/CSV (الشهر الحالي)</button>
+  <button class="btn btn-ghost" onclick="window.print()" style="width:100%; justify-content:flex-start;">🖨️ طباعة التقارير</button>
+</div>
+<script>
+  function toggleSidebar() {
+    const drawer = document.getElementById("sideDrawer");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (drawer.style.right === "0px") {
+      drawer.style.right = "-320px";
+      overlay.style.display = "none";
+    } else {
+      drawer.style.right = "0px";
+      overlay.style.display = "block";
+    }
+  }
+</script>
+
+<!-- Edit Purchase Modal -->
+<div id="editModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:200; display:none; align-items:center; justify-content:center; padding:15px;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; width:100%; max-width:600px; box-shadow:var(--shadow); max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px;">
+      <h3 style="color:var(--gold-light); font-size:1.1rem;">✏️ تعديل تفاصيل البيعة</h3>
+      <button class="btn btn-red" style="padding:4px 10px;" onclick="closeEditModal()">✕</button>
+    </div>
+    <form id="editPurchaseForm" onsubmit="saveEditedPurchase(event)">
+      <input type="hidden" id="editId" />
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="field">
+          <label>الأسبوع</label>
+          <select id="editWeek">
+            <option value="الأسبوع الأول">الأسبوع الأول</option>
+            <option value="الأسبوع الثاني">الأسبوع الثاني</option>
+            <option value="الأسبوع الثالث">الأسبوع الثالث</option>
+            <option value="الأسبوع الرابع">الأسبوع الرابع</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>اليوم / التاريخ</label>
+          <input type="text" id="editDay" required />
+        </div>
+        <div class="field">
+          <label>اسم العميل / المورد</label>
+          <input type="text" id="editClient" />
+        </div>
+        <div class="field">
+          <label>الوزن الأولي الخام (جرام)</label>
+          <input type="number" id="editRawWeight" step="0.01" min="0" required oninput="recalcEditForm()" />
+        </div>
+        <div class="field">
+          <label>عيار الشيشنة</label>
+          <input type="number" id="editShishna" step="0.1" required oninput="recalcEditForm()" />
+        </div>
+        <div class="field">
+          <label>نوع التحييف</label>
+          <select id="editKaratType" onchange="recalcEditForm()">
+            <option value="21">على 21 (÷ 875)</option>
+            <option value="24">على 24 (÷ 1000)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>الوزن المحيف الصافي (تلقائي)</label>
+          <input type="number" id="editNetWeight" step="0.01" readonly />
+        </div>
+        <div class="field">
+          <label>سعر الجرام اليوم (جنيه)</label>
+          <input type="number" id="editGramPrice" step="0.01" min="0" oninput="recalcEditForm()" />
+        </div>
+        <div class="field">
+          <label>المبلغ المحسوب</label>
+          <input type="number" id="editCalcAmount" step="0.01" />
+        </div>
+        <div class="field">
+          <label>المدفوع فعلياً من الخزنة</label>
+          <input type="number" id="editPaidAmount" step="0.01" required />
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>ملاحظات</label>
+          <input type="text" id="editNotes" />
+        </div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+        <button type="button" class="btn btn-ghost" onclick="closeEditModal()">إلغاء</button>
+        <button type="submit" class="btn btn-gold">💾 حفظ التعديلات</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function movePurchase(id, direction) {
+    recordAction();
+    const month = document.getElementById("monthSelect").value;
+    const pid = state.viewingPeriodId || 1;
+    const monthSales = state.sales.filter(s => s.month === month && (s.periodId || 1) === pid);
+    const globalIdx = state.sales.findIndex(s => s.id === id);
+    const localIdx = monthSales.findIndex(s => s.id === id);
+    if (localIdx === -1) return;
+
+    const targetLocalIdx = localIdx + direction;
+    if (targetLocalIdx < 0 || targetLocalIdx >= monthSales.length) return;
+
+    const targetItem = monthSales[targetLocalIdx];
+    const targetGlobalIdx = state.sales.findIndex(s => s.id === targetItem.id);
+
+    const temp = state.sales[globalIdx];
+    state.sales[globalIdx] = state.sales[targetGlobalIdx];
+    state.sales[targetGlobalIdx] = temp;
+
+    saveState("تم إعادة ترتيب البيعات");
+    renderAll();
+  }
+
+  function openEditPurchase(id) {
+    const s = state.sales.find(item => item.id === id);
+    if (!s) return;
+    document.getElementById("editId").value = s.id;
+    document.getElementById("editWeek").value = s.week || "الأسبوع الأول";
+    document.getElementById("editDay").value = s.day || "يوم السبت";
+    document.getElementById("editClient").value = s.client || "";
+    document.getElementById("editRawWeight").value = s.rawWeight || "";
+    document.getElementById("editShishna").value = s.shishna || 875;
+    document.getElementById("editKaratType").value = s.karatType || "21";
+    document.getElementById("editNetWeight").value = s.netWeight || "";
+    document.getElementById("editGramPrice").value = s.gramPrice || "";
+    document.getElementById("editCalcAmount").value = s.calcAmount || "";
+    document.getElementById("editPaidAmount").value = s.paidAmount || "";
+    document.getElementById("editNotes").value = s.notes || "";
+    document.getElementById("editModal").style.display = "flex";
+  }
+
+  function closeEditModal() {
+    document.getElementById("editModal").style.display = "none";
+  }
+
+  function recalcEditForm() {
+    const raw = parseFloat(document.getElementById("editRawWeight").value) || 0;
+    const sh = parseFloat(document.getElementById("editShishna").value) || 0;
+    const kt = document.getElementById("editKaratType").value;
+    const price = parseFloat(document.getElementById("editGramPrice").value) || 0;
+
+    const net = calcNetWeight(raw, sh, kt);
+    document.getElementById("editNetWeight").value = net ? net.toFixed(2) : "";
+
+    if (net > 0 && price > 0) {
+      const total = Math.round((net * price + Number.EPSILON) * 100) / 100;
+      document.getElementById("editCalcAmount").value = total;
+      document.getElementById("editPaidAmount").value = total;
+    }
+  }
+
+  function saveEditedPurchase(e) {
+    recordAction();
+    e.preventDefault();
+    const id = document.getElementById("editId").value;
+    const s = state.sales.find(item => item.id === id);
+    if (!s) return;
+
+    s.week = document.getElementById("editWeek").value;
+    s.day = document.getElementById("editDay").value.trim();
+    s.client = document.getElementById("editClient").value.trim();
+    s.rawWeight = parseFloat(document.getElementById("editRawWeight").value) || 0;
+    s.shishna = parseFloat(document.getElementById("editShishna").value) || 875;
+    s.karatType = document.getElementById("editKaratType").value;
+    s.netWeight = calcNetWeight(s.rawWeight, s.shishna, s.karatType);
+    s.gramPrice = parseFloat(document.getElementById("editGramPrice").value) || 0;
+    s.calcAmount = parseFloat(document.getElementById("editCalcAmount").value) || 0;
+    s.paidAmount = parseFloat(document.getElementById("editPaidAmount").value) || 0;
+    s.notes = document.getElementById("editNotes").value.trim();
+
+    closeEditModal();
+    saveState("تم تعديل البيعة بنجاح");
+    renderAll();
+  }
+</script>
+
+<!-- Search Results Modal -->
+<div id="searchModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:250; display:none; align-items:center; justify-content:center; padding:15px;">
+  <div style="background:var(--surface); border:1px solid var(--gold); border-radius:var(--radius); padding:20px; width:100%; max-width:850px; box-shadow:var(--shadow); max-height:85vh; display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+      <h3 style="color:var(--gold-light); font-size:1.1rem; display:flex; align-items:center; gap:8px;">🔍 نتائج البحث المتقدم</h3>
+      <button class="btn btn-red" style="padding:4px 10px;" onclick="closeSearchModal()">✕ إغلاق</button>
+    </div>
+    <div style="font-size:0.82rem; color:var(--text-muted);" id="searchModalCount">جارٍ البحث...</div>
+    <div class="table-wrap" style="max-height:55vh; overflow-y:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>الشهر</th>
+            <th>م / البيعة</th>
+            <th>الأسبوع / اليوم</th>
+            <th>اسم العميل</th>
+            <th>الوزن الأولي</th>
+            <th>الصافي</th>
+            <th>سعر الجرام</th>
+            <th>المدفوع</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody id="searchModalTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openSearchModal() {
+    const q = document.getElementById("searchPurchase").value.trim().toLowerCase();
+    const results = state.sales.filter(s =>
+      !q || (
+        (s.client && s.client.toLowerCase().includes(q)) ||
+        (s.code && s.code.toLowerCase().includes(q)) ||
+        (s.notes && s.notes.toLowerCase().includes(q)) ||
+        (s.month && s.month.toLowerCase().includes(q))
+      )
+    );
+    document.getElementById("searchModalCount").textContent = `تم العثور على (${results.length}) نتيجة مطابقة`;
+    const tbody = document.getElementById("searchModalTbody");
+    if (results.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد نتائج مطابقة</td></tr>`;
+    } else {
+      tbody.innerHTML = results.map(s => `
+        <tr>
+          <td><span class="badge">${s.month}</span></td>
+          <td><span class="badge badge-gold">${s.code}</span></td>
+          <td>${s.week} - ${s.day}</td>
+          <td style="font-weight:700;">${s.client || '—'}</td>
+          <td class="num">${fmt(s.rawWeight)}</td>
+          <td class="num" style="color:var(--gold-light);">${fmt(s.netWeight)}</td>
+          <td class="num">${fmt(s.gramPrice)}</td>
+          <td class="num" style="color:var(--green);">${fmt(s.paidAmount)}</td>
+          <td>${s.notes || ''}</td>
+        </tr>
+      `).join("");
+    }
+    document.getElementById("searchModal").style.display = "flex";
+  }
+
+  function closeSearchModal() {
+    document.getElementById("searchModal").style.display = "none";
+  }
+</script>
+
+<!-- Desktop Calculator Modal -->
+<div id="desktopCalcModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:300; display:none; align-items:center; justify-content:center; padding:15px;">
+  <div style="background:var(--surface); border:1px solid var(--gold); border-radius:16px; padding:20px; width:100%; max-width:340px; box-shadow:0 12px 36px rgba(0,0,0,0.6); display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+      <h3 style="color:var(--gold-light); font-size:1rem; display:flex; align-items:center; gap:6px;">🧮 آلة حاسبة احترافية</h3>
+      <button class="btn btn-red" style="padding:4px 8px; font-size:0.8rem;" onclick="closeDesktopCalculator()">✕</button>
+    </div>
+    
+    <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:left; direction:ltr;">
+      <div id="calcHistory" style="font-size:0.75rem; color:var(--text-muted); min-height:18px; overflow-x:auto;"></div>
+      <div id="calcScreen" style="font-size:1.6rem; font-weight:800; color:var(--gold-light); overflow-x:auto; margin-top:2px;">0</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+      <button class="btn btn-ghost" style="padding:12px; font-size:0.95rem; justify-content:center;" onclick="calcClear()">C</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:0.95rem; justify-content:center;" onclick="calcBack()">⌫</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:0.95rem; justify-content:center;" onclick="calcAppend('%')">%</button>
+      <button class="btn btn-gold" style="padding:12px; font-size:0.95rem; justify-content:center;" onclick="calcAppend('/')">÷</button>
+
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('7')">7</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('8')">8</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('9')">9</button>
+      <button class="btn btn-gold" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('*')">×</button>
+
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('4')">4</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('5')">5</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('6')">6</button>
+      <button class="btn btn-gold" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('-')">-</button>
+
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('1')">1</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('2')">2</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('3')">3</button>
+      <button class="btn btn-gold" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('+')">+</button>
+
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center; grid-column: span 2;" onclick="calcAppend('0')">0</button>
+      <button class="btn btn-ghost" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcAppend('.')">.</button>
+      <button class="btn btn-green" style="padding:12px; font-size:1rem; justify-content:center;" onclick="calcEvaluate()">=</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">سجل العمليات السابقة:</span>
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:0.7rem;" onclick="clearCalcHistory()">مسح السجل</button>
+      </div>
+      <div id="calcMemoryList" style="max-height:100px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; font-size:0.78rem; direction:ltr; text-align:right;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let calcExpression = "0";
+  let calcHistoryExpr = "";
+  let calcMemory = [];
+
+  function loadCalcMemory() {
+    try {
+      const saved = localStorage.getItem("gold_calc_history_v56");
+      if (saved) calcMemory = JSON.parse(saved);
+    } catch(e){}
+    renderCalcMemory();
+  }
+
+  function saveCalcMemory() {
+    try {
+      localStorage.setItem("gold_calc_history_v56", JSON.stringify(calcMemory));
+    } catch(e){}
+  }
+
+  function openDesktopCalculator() {
+    document.getElementById("desktopCalcModal").style.display = "flex";
+    loadCalcMemory();
+    updateCalcDisplay();
+    toggleSidebar();
+  }
+
+  function closeDesktopCalculator() {
+    document.getElementById("desktopCalcModal").style.display = "none";
+  }
+
+  function updateCalcDisplay() {
+    document.getElementById("calcScreen").textContent = calcExpression;
+    document.getElementById("calcHistory").textContent = calcHistoryExpr;
+  }
+
+  function calcClear() {
+    calcExpression = "0";
+    calcHistoryExpr = "";
+    updateCalcDisplay();
+  }
+
+  function calcBack() {
+    if (calcExpression.length > 1) {
+      calcExpression = calcExpression.slice(0, -1);
+    } else {
+      calcExpression = "0";
+    }
+    updateCalcDisplay();
+  }
+
+  function calcAppend(val) {
+    if (calcExpression === "0" && !isNaN(val)) {
+      calcExpression = val;
+    } else {
+      calcExpression += val;
+    }
+    updateCalcDisplay();
+  }
+
+  function calcEvaluate() {
+    try {
+      const sanitized = calcExpression.replace(/×/g, '*').replace(/÷/g, '/');
+      const res = Function('"use strict";return (' + sanitized + ')')();
+      const formattedRes = Number(res.toFixed(6)).toString();
+      
+      calcHistoryExpr = calcExpression + " =";
+      calcMemory.unshift({ expr: calcExpression, result: formattedRes, time: new Date().toLocaleTimeString("ar-EG", {hour: '2-digit', minute:'2-digit'}) });
+      if (calcMemory.length > 20) calcMemory.pop();
+      saveCalcMemory();
+      renderCalcMemory();
+
+      calcExpression = formattedRes;
+      updateCalcDisplay();
+    } catch (e) {
+      document.getElementById("calcScreen").textContent = "خطأ في العملية";
+      setTimeout(() => { calcExpression = "0"; updateCalcDisplay(); }, 1200);
+    }
+  }
+
+  function renderCalcMemory() {
+    const listEl = document.getElementById("calcMemoryList");
+    if (!listEl) return;
+    if (calcMemory.length === 0) {
+      listEl.innerHTML = `<div style="color:var(--text-muted); font-size:0.75rem;">لا توجد عمليات محفوظة</div>`;
+      return;
+    }
+    listEl.innerHTML = calcMemory.map((m, idx) => `
+      <div style="background:var(--surface-2); padding:4px 8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="useCalcMemory('${m.result}')" title="اضغط لاستخدام الناتج">
+        <span style="color:var(--text-muted);">${m.expr} = <strong style="color:var(--gold-light);">${m.result}</strong></span>
+        <span style="font-size:0.65rem; color:var(--text-muted);">${m.time}</span>
+      </div>
+    `).join("");
+  }
+
+  function useCalcMemory(val) {
+    calcExpression = val;
+    updateCalcDisplay();
+  }
+
+  function clearCalcHistory() {
+    calcMemory = [];
+    saveCalcMemory();
+    renderCalcMemory();
+  }
+</script>
+
+
+<button class="fab-add no-print" onclick="scrollToPurchaseForm()" title="إضافة بيعة جديدة">➕</button>
+<script>
+  function scrollToPurchaseForm() {
+    // Switch to purchases tab if not active
+    document.querySelector('[data-tab="purchases"]').click();
+    const form = document.getElementById("purchaseForm");
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const firstInput = document.getElementById("pRawWeight");
+      if (firstInput) setTimeout(() => firstInput.focus(), 300);
+    }
+  }
+</script>
 </body>
+
 </html>
