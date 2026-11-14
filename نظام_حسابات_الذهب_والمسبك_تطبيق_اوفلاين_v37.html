@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0f172a" />
+<title>نظام إدارة حسابات الذهب والمسبك — تطبيق أوفلاين (v37)</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --surface: #111827;
+    --surface-2: #1e293b;
+    --surface-3: #273549;
+    --border: #334155;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --gold: #f59e0b;
+    --gold-light: #fcd34d;
+    --gold-bg: rgba(245, 158, 11, 0.14);
+    --green: #10b981;
+    --green-bg: rgba(16, 185, 129, 0.14);
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.14);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59, 130, 246, 0.14);
+    --radius: 12px;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, 'Cairo', Arial, sans-serif; }
+  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Header */
+  .topbar {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, #f59e0b, #b45309);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: bold; color: #fff; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+  .brand h1 { font-size: 1.15rem; font-weight: 700; color: var(--gold-light); }
+  .brand p { font-size: 0.78rem; color: var(--text-muted); }
+  .offline-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--green-bg); color: var(--green);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 5px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+  .topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn {
+    border: none; border-radius: 8px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.15s;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn-gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-green { background: var(--green); color: #052e16; }
+  .btn-red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.35); }
+  .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+
+  /* Navigation Tabs */
+  .nav-tabs {
+    display: flex; overflow-x: auto; gap: 6px;
+    background: var(--surface); padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    background: transparent; color: var(--text-muted); border: 1px solid transparent;
+    padding: 9px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: 0.15s;
+  }
+  .nav-tab:hover { background: var(--surface-2); color: var(--text); }
+  .nav-tab.active {
+    background: var(--gold-bg); color: var(--gold-light);
+    border-color: rgba(245, 158, 11, 0.45);
+  }
+
+  /* Main Container */
+  .container { max-width: 1440px; width: 100%; margin: 0 auto; padding: 20px; flex: 1; }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ""; position: absolute; top: 0; right: 0; width: 4px; height: 100%;
+    background: var(--gold);
+  }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-card.blue::before { background: var(--blue); }
+  .kpi-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi-value { font-size: 1.35rem; font-weight: 800; color: var(--text); direction: ltr; text-align: right; }
+  .kpi-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* Month Selector & Controls */
+  .controls-bar {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 18px; margin-bottom: 18px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .control-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  label { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+  select, input, textarea {
+    background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; outline: none;
+  }
+  select:focus, input:focus { border-color: var(--gold); }
+
+  /* Quick Entry Card */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .panel-title { font-size: 1rem; font-weight: 700; color: var(--gold-light); display: flex; align-items: center; gap: 8px; }
+  .form-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 12px; align-items: end;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field input[readonly] { background: rgba(245, 158, 11, 0.08); color: var(--gold-light); font-weight: 700; border-color: rgba(245,158,11,0.3); }
+
+  /* Data Table */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th {
+    background: var(--surface-2); color: var(--gold-light); font-weight: 700;
+    padding: 11px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td {
+    padding: 9px 10px; text-align: center; border-bottom: 1px solid rgba(51, 65, 85, 0.55);
+    white-space: nowrap;
+  }
+  tr:hover td { background: rgba(255, 255, 255, 0.03); }
+  .num { font-variant-numeric: tabular-nums; direction: ltr; }
+  .badge {
+    padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700;
+    background: var(--surface-3); color: var(--text);
+  }
+  .badge-gold { background: var(--gold-bg); color: var(--gold-light); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+
+  .hidden { display: none !important; }
+
+  /* Calculator Modal / Drawer */
+  .calc-box {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;
+  }
+  .calc-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .calc-card h4 { color: var(--gold-light); margin-bottom: 8px; font-size: 0.92rem; }
+  .calc-res { font-size: 1.25rem; font-weight: 800; color: var(--green); margin-top: 8px; direction: ltr; text-align: right; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; left: 20px; background: #10b981; color: #052e16;
+    padding: 12px 18px; border-radius: 10px; font-weight: 700; box-shadow: var(--shadow);
+    z-index: 100; transition: 0.25s; opacity: 0; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  @media print {
+    .topbar, .nav-tabs, .no-print { display: none !important; }
+    body { background: #fff; color: #000; }
+    .panel, .kpi-card { border: 1px solid #ccc; box-shadow: none; background: #fff; color: #000; }
+    th { background: #eee !important; color: #000 !important; }
+    td, .kpi-value { color: #000 !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">⚖️</div>
+    <div>
+      <h1>نظام إدارة حسابات الذهب والمسبك (v37)</h1>
+      <p>إدارة المشتريات اليومية، التحييف، الخزنة، المسبك، الذهب المباع، وسحوبات الموظفين</p>
+    </div>
+  </div>
+  <div class="topbar-actions no-print">
+    <span class="offline-badge"><span class="dot"></span> يعمل أوفلاين 100% (حفظ تلقائي)</span>
+    <button class="btn btn-ghost" onclick="exportBackupJSON()">💾 نسخة احتياطية (JSON)</button>
+    <label class="btn btn-ghost" style="cursor:pointer;">
+      📂 استعادة نسخة
+      <input type="file" accept=".json" style="display:none" onchange="importBackupJSON(event)" />
+    </label>
+    <button class="btn btn-blue" onclick="exportCSV()">📊 تصدير Excel/CSV</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨️ طباعة</button>
+  </div>
+</header>
+
+<nav class="nav-tabs no-print" id="navTabs">
+  <button class="nav-tab active" data-tab="purchases">🛒 مشتريات الذهب واليومية (12 شهر)</button>
+  <button class="nav-tab" data-tab="soldGold">✨ الذهب المباع</button>
+  <button class="nav-tab" data-tab="withdrawals">👷 سحوبات الموظفين والنثرية</button>
+  <button class="nav-tab" data-tab="calculator">🧮 حاسبة التحييف السريعة</button>
+  <button class="nav-tab" data-tab="casting">🔥 الذهب المسبوك</button>
+  <button class="nav-tab" data-tab="foundryIn">💰 محصلات المسبك (الواردة)</button>
+  <button class="nav-tab" data-tab="foundryOut">🛠️ مصروفات المسبك</button>
+  <button class="nav-tab" data-tab="annual">📈 الملخص السنوي الشامل</button>
+</nav>
+
+<main class="container">
+<section id="tab-purchases">
+    <div class="controls-bar no-print">
+      <div class="control-group">
+        <label>اختر الشهر:</label>
+        <select id="monthSelect" onchange="renderAll()"></select>
+
+        <label>الأسبوع:</label>
+        <select id="weekFilter" onchange="renderPurchasesTable()">
+          <option value="ALL">كل الأسابيع</option>
+          <option value="الأسبوع الأول">الأسبوع الأول</option>
+          <option value="الأسبوع الثاني">الأسبوع الثاني</option>
+          <option value="الأسبوع الثالث">الأسبوع الثالث</option>
+          <option value="الأسبوع الرابع">الأسبوع الرابع</option>
+        </select>
+
+        <label>بحث بالعميل / رقم البيعة:</label>
+        <input type="text" id="searchPurchase" placeholder="اكتب اسم العميل أو البيعة..." oninput="renderPurchasesTable()" />
+      </div>
+
+      <div class="control-group">
+        <label>الرصيد الافتتاحي للشهر (جنيه):</label>
+        <input type="number" id="openingBalanceInput" step="100" style="width:170px; font-weight:700;" onchange="updateOpeningBalance()" />
+        <button class="btn btn-ghost" onclick="carryOverFromPrevMonth()" title="ترحيل من الشهر السابق">🔄 ترحيل من السابق</button>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">رصيد الخزنة الافتتاحي</div>
+        <div class="kpi-value num" id="kpiOpening">0.00</div>
+        <div class="kpi-sub" id="kpiMonthTitle">شهر 11</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">رصيد الخزنة المتبقي الفعلي</div>
+        <div class="kpi-value num" id="kpiRemaining">0.00</div>
+        <div class="kpi-sub">بعد خصم المشتريات والسحوبات والمصروفات + المحصلات</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">إجمالي الذهب الصافي المحيف (جرام)</div>
+        <div class="kpi-value num" id="kpiNetWeight">0.00</div>
+        <div class="kpi-sub" id="kpiCountSales">عدد البيعات: 0</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">إجمالي الوزن الخام للشهر (جرام)</div>
+        <div class="kpi-value num" id="kpiRawWeight">0.00</div>
+        <div class="kpi-sub" id="kpiTotalPaidSub">إجمالي المنصرف للذهب: 0.00 ج.م</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">إجمالي السحوبات والمصروفات</div>
+        <div class="kpi-value num" id="kpiExpensesTotal">0.00</div>
+        <div class="kpi-sub" id="kpiFoundryInSub">محصلات المسبك: +0.00 ج.م</div>
+      </div>
+    </div>
+
+    <!-- Quick Entry Form -->
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">✍️ تسجيل بيعة / حركة شراء ذهب جديدة</div>
+        <span style="font-size:0.8rem; color:var(--text-muted)">يتم حساب الوزن المحيف والإجمالي تلقائياً</span>
+      </div>
+      <form id="purchaseForm" onsubmit="addPurchase(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>الأسبوع</label>
+            <select id="pWeek">
+              <option value="الأسبوع الأول">الأسبوع الأول</option>
+              <option value="الأسبوع الثاني">الأسبوع الثاني</option>
+              <option value="الأسبوع الثالث">الأسبوع الثالث</option>
+              <option value="الأسبوع الرابع">الأسبوع الرابع</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>اليوم / التاريخ</label>
+            <input type="text" id="pDay" value="يوم السبت" required />
+          </div>
+          <div class="field">
+            <label>اسم العميل / المورد</label>
+            <input type="text" id="pClient" placeholder="مثال: فؤش / عمور" />
+          </div>
+          <div class="field">
+            <label>الوزن الأولي الخام (جرام)</label>
+            <input type="number" id="pRawWeight" step="0.01" min="0" required oninput="recalcPurchaseForm()" />
+          </div>
+          <div class="field">
+            <label>عيار الشيشنة (مثال: 875)</label>
+            <input type="number" id="pShishna" step="0.1" value="875" required oninput="recalcPurchaseForm()" />
+          </div>
+          <div class="field">
+            <label>نوع التحييف</label>
+            <select id="pKaratType" onchange="recalcPurchaseForm()">
+              <option value="21">على 21 (÷ 875)</option>
+              <option value="24">على 24 (÷ 1000)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>الوزن المحيف الصافي (تلقائي)</label>
+            <input type="number" id="pNetWeight" step="0.01" readonly />
+          </div>
+          <div class="field">
+            <label>سعر الجرام اليوم (جنيه)</label>
+            <input type="number" id="pGramPrice" step="0.01" min="0" oninput="recalcPurchaseForm()" />
+          </div>
+          <div class="field">
+            <label>المبلغ المحسوب (تلقائي)</label>
+            <input type="number" id="pCalcAmount" step="0.01" oninput="syncPaidWithCalc()" />
+          </div>
+          <div class="field">
+            <label>المدفوع فعلياً من الخزنة</label>
+            <input type="number" id="pPaidAmount" step="0.01" required />
+          </div>
+          <div class="field">
+            <label>ملاحظات</label>
+            <input type="text" id="pNotes" placeholder="اختياري..." />
+          </div>
+          <div class="field">
+            <button type="submit" class="btn btn-gold" style="height:38px; justify-content:center;">➕ حفظ وترحيل البيعة</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Purchases Table -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">📋 سجل بيعات وحركات الشهر (<span id="tableMonthLabel">شهر 11</span>)</div>
+        <div class="control-group no-print">
+          <button class="btn btn-red" onclick="clearCurrentMonthSales()">🗑️ مسح بيانات الشهر</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>م / البيعة</th>
+              <th>الأسبوع / اليوم</th>
+              <th>اسم العميل</th>
+              <th>الوزن الأولي</th>
+              <th>الشيشنة</th>
+              <th>التحييف</th>
+              <th>الوزن المحيف الصافي</th>
+              <th>سعر الجرام</th>
+              <th>المبلغ المحسوب</th>
+              <th>المدفوع فعلياً</th>
+              <th>ملاحظات</th>
+              <th class="no-print">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="purchasesTbody"></tbody>
+          <tfoot id="purchasesTfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-soldGold" class="hidden">
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">✨ تسجيل حركة بيع ذهب جديدة</div>
+        <span style="font-size:0.8rem; color:var(--text-muted)">الإسم، الوزن، سعر الشراء، وسعر البيع</span>
+      </div>
+      <form onsubmit="addSoldGold(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>الشهر التابع له</label>
+            <select id="sgMonth"></select>
+          </div>
+          <div class="field">
+            <label>التاريخ</label>
+            <input type="date" id="sgDate" />
+          </div>
+          <div class="field">
+            <label>إسم العميل / البيان</label>
+            <input type="text" id="sgName" required placeholder="اسم المشري / العميل..." />
+          </div>
+          <div class="field">
+            <label>الوزن (جرام)</label>
+            <input type="number" id="sgWeight" step="0.01" min="0" required oninput="recalcSoldForm()" />
+          </div>
+          <div class="field">
+            <label>سعر الشراء للجرام (جنيه)</label>
+            <input type="number" id="sgBuyPrice" step="0.01" min="0" required oninput="recalcSoldForm()" />
+          </div>
+          <div class="field">
+            <label>سعر البيع للجرام (جنيه)</label>
+            <input type="number" id="sgSellPrice" step="0.01" min="0" required oninput="recalcSoldForm()" />
+          </div>
+          <div class="field">
+            <label>ناتج سعر البيع الإجمالي (تلقائي)</label>
+            <input type="number" id="sgTotalSell" step="0.01" readonly />
+          </div>
+          <div class="field">
+            <label>ملاحظات</label>
+            <input type="text" id="sgNotes" placeholder="ملاحظات أو رقم الفاتورة..." />
+          </div>
+          <div class="field">
+            <button type="submit" class="btn btn-gold" style="height:38px; justify-content:center;">➕ حفظ حركة البيع</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">✨ سجل الذهب المباع</div>
+        <div class="badge badge-gold" id="soldSummaryBadge">إجمالي إيرادات البيع: 0.00 ج.م</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الشهر</th>
+              <th>التاريخ</th>
+              <th>إسم العميل / البيان</th>
+              <th>الوزن (جرام)</th>
+              <th>سعر الشراء (للكيلو/الجرام)</th>
+              <th>سعر البيع (للكيلو/الجرام)</th>
+              <th>ناتج سعر البيع الإجمالي</th>
+              <th>ملاحظات</th>
+              <th class="no-print">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="soldTbody"></tbody>
+          <tfoot id="soldTfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-withdrawals" class="hidden">
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">👷 تسجيل سحوبات الموظفين والمسحوبات النقدية</div>
+      </div>
+      <form onsubmit="addWithdrawal(event)">
+        <div class="form-grid">
+          <div class="field"><label>الشهر</label><select id="wMonth"></select></div>
+          <div class="field"><label>التاريخ</label><input type="date" id="wDate" /></div>
+          <div class="field"><label>اسم الموظف / المستلم</label><input type="text" id="wEmployee" placeholder="مثال: مصطفى طاهر" /></div>
+          <div class="field"><label>سبب السحب / البيان</label><input type="text" id="wReason" placeholder="مثال: طعام، سلفة، خامات..." /></div>
+          <div class="field"><label>المبلغ المسحوب (جنيه)</label><input type="number" id="wAmount" step="0.01" required /></div>
+          <div class="field"><label>ملاحظات / اعتمادات</label><input type="text" id="wNotes" /></div>
+          <div class="field"><button type="submit" class="btn btn-gold" style="height:38px; justify-content:center;">➕ تسجيل سحب</button></div>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">👷 سجل سحوبات الموظفين والنثرية</div>
+        <div class="badge badge-red" id="wTotalBadge">الإجمالي: 0.00 ج.م</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>الشهر</th><th>التاريخ</th><th>اسم الموظف / المستلم</th><th>سبب السحب</th><th>المبلغ المسحوب (جنيه)</th><th>ملاحظات</th><th class="no-print">حذف</th></tr>
+          </thead>
+          <tbody id="wTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-calculator" class="hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">🧮 حاسبة الذهب السريعة وتحييف العيار الفوري</div>
+      </div>
+      <div class="calc-box">
+        <div class="calc-card">
+          <h4>⚖️ حاسبة تحييف العيار والتسعير</h4>
+          <div class="field" style="margin-bottom:8px;">
+            <label>الوزن الخام (جرام)</label>
+            <input type="number" id="qcWeight" step="0.01" oninput="runQuickCalc()" />
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label>عيار الشيشنة</label>
+            <input type="number" id="qcShishna" step="0.1" value="875" oninput="runQuickCalc()" />
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label>التحويل إلى عيار</label>
+            <select id="qcKarat" onchange="runQuickCalc()">
+              <option value="21">عيار 21 (÷ 875)</option>
+              <option value="24">عيار 24 (÷ 1000)</option>
+              <option value="18">عيار 18 (÷ 750)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>سعر الجرام (جنيه)</label>
+            <input type="number" id="qcPrice" step="0.01" oninput="runQuickCalc()" />
+          </div>
+          <div class="calc-res" id="qcNetOut">الوزن المحيف: 0.00 جرام</div>
+          <div class="calc-res" style="color:var(--gold-light);" id="qcMoneyOut">الإجمالي: 0.00 ج.م</div>
+        </div>
+
+        <div class="calc-card">
+          <h4>➕ حاسبة الجمع والطرح السريعة</h4>
+          <div class="field" style="margin-bottom:8px;">
+            <label>اكتب أي عملية حسابية (مثال: 25000 + 14500 - 3200)</label>
+            <input type="text" id="mathExpr" placeholder="200*180 + 124.8*175" oninput="runMathExpr()" dir="ltr" />
+          </div>
+          <div class="calc-res" id="mathExprRes">الناتج: 0.00</div>
+        </div>
+      </div>
+    </div>
+  </section>
+<section id="tab-casting" class="hidden">
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">🔥 تسجيل حركة ذهب مسبوك جديدة</div>
+      </div>
+      <form onsubmit="addCasting(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>الشهر التابع له</label>
+            <select id="cMonth"></select>
+          </div>
+          <div class="field">
+            <label>التاريخ / اليوم</label>
+            <input type="date" id="cDate" />
+          </div>
+          <div class="field">
+            <label>الوزن الأولي (جرام)</label>
+            <input type="number" id="cRaw" step="0.01" required oninput="recalcCastingForm()" />
+          </div>
+          <div class="field">
+            <label>عيار الشيشنة</label>
+            <input type="number" id="cShishna" step="0.1" value="875" required oninput="recalcCastingForm()" />
+          </div>
+          <div class="field">
+            <label>نوع التحييف</label>
+            <select id="cKarat" onchange="recalcCastingForm()">
+              <option value="21">على 21 (÷ 875)</option>
+              <option value="24">على 24 (÷ 1000)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>الوزن المحيف الصافي</label>
+            <input type="number" id="cNet" step="0.01" readonly />
+          </div>
+          <div class="field">
+            <label>رقم السبكة / ملاحظات</label>
+            <input type="text" id="cNotes" placeholder="رقم السبكة..." />
+          </div>
+          <div class="field">
+            <button type="submit" class="btn btn-gold" style="height:38px; justify-content:center;">➕ إضافة سبكة</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">🔥 سجل الذهب المسبوك</div>
+        <div class="badge badge-gold" id="castingSummaryBadge">إجمالي الصافي: 0.00 جرام</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الشهر</th>
+              <th>التاريخ</th>
+              <th>الوزن الأولي (جرام)</th>
+              <th>عيار الشيشنة</th>
+              <th>نوع التحييف</th>
+              <th>الوزن المحيف الصافي</th>
+              <th>رقم السبكة / ملاحظات</th>
+              <th class="no-print">حذف</th>
+            </tr>
+          </thead>
+          <tbody id="castingTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-foundryIn" class="hidden">
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">💰 تسجيل محصلات المسبك (نقدية واردة للخزنة)</div>
+      </div>
+      <form onsubmit="addLedgerItem(event, 'foundryIn')">
+        <div class="form-grid">
+          <div class="field"><label>الشهر</label><select id="fiMonth"></select></div>
+          <div class="field"><label>التاريخ</label><input type="date" id="fiDate" /></div>
+          <div class="field"><label>رقم السبكة / البيان</label><input type="text" id="fiTitle" required placeholder="بيان التحصيل..." /></div>
+          <div class="field"><label>جهة التوريد / المسبك</label><input type="text" id="fiParty" placeholder="اسم المسبك أو الجهة..." /></div>
+          <div class="field"><label>المبلغ المحصل (جنيه)</label><input type="number" id="fiAmount" step="0.01" required /></div>
+          <div class="field"><label>ملاحظات</label><input type="text" id="fiNotes" /></div>
+          <div class="field"><button type="submit" class="btn btn-green" style="height:38px; justify-content:center;">➕ إضافة محصل</button></div>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">💰 سجل محصلات المسبك</div>
+        <div class="badge badge-green" id="fiTotalBadge">الإجمالي: 0.00 ج.م</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>الشهر</th><th>التاريخ</th><th>رقم السبكة / البيان</th><th>جهة التوريد</th><th>المبلغ المحصل (جنيه)</th><th>ملاحظات</th><th class="no-print">حذف</th></tr>
+          </thead>
+          <tbody id="fiTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-foundryOut" class="hidden">
+    <div class="panel no-print">
+      <div class="panel-header">
+        <div class="panel-title">🛠️ تسجيل مصروفات ومعدات المسبك</div>
+      </div>
+      <form onsubmit="addLedgerItem(event, 'foundryOut')">
+        <div class="form-grid">
+          <div class="field"><label>الشهر</label><select id="foMonth"></select></div>
+          <div class="field"><label>التاريخ</label><input type="date" id="foDate" /></div>
+          <div class="field"><label>اسم المعدة / البند</label><input type="text" id="foTitle" required placeholder="مثال: بوتقة، غاز، صيانة..." /></div>
+          <div class="field"><label>المورد / الجهة</label><input type="text" id="foParty" placeholder="اسم المورد..." /></div>
+          <div class="field"><label>المبلغ المنصرف (جنيه)</label><input type="number" id="foAmount" step="0.01" required /></div>
+          <div class="field"><label>ملاحظات</label><input type="text" id="foNotes" /></div>
+          <div class="field"><button type="submit" class="btn btn-gold" style="height:38px; justify-content:center;">➕ إضافة مصروف</button></div>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">🛠️ سجل مصروفات المسبك</div>
+        <div class="badge badge-red" id="foTotalBadge">الإجمالي: 0.00 ج.م</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>الشهر</th><th>التاريخ</th><th>اسم المعدة / البند</th><th>المورد</th><th>المبلغ المنصرف (جنيه)</th><th>ملاحظات</th><th class="no-print">حذف</th></tr>
+          </thead>
+          <tbody id="foTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+<section id="tab-annual" class="hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">📈 الملخص السنوي الشامل لحسابات الذهب والخزنة والمسبك (12 شهر)</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الشهر</th>
+              <th>الوزن الخام (جرام)</th>
+              <th>الذهب الصافي المحيف (جرام)</th>
+              <th>مشتريات الذهب (جنيه)</th>
+              <th>الذهب المسبوك الصافي (جرام)</th>
+              <th>محصلات المسبك (جنيه)</th>
+              <th>مصروفات المسبك (جنيه)</th>
+              <th>سحوبات الموظفين (جنيه)</th>
+              <th>رصيد الخزنة المتبقي</th>
+            </tr>
+          </thead>
+          <tbody id="annualTbody"></tbody>
+          <tfoot id="annualTfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast">تم الحفظ بنجاح</div>
+
+<script>
+  const MONTHS = [
+    "شهر 1", "شهر 2", "شهر 3", "شهر 4", "شهر 5", "شهر 6",
+    "شهر 7", "شهر 8", "شهر 9", "شهر 10", "شهر 11", "شهر 12"
+  ];
+
+  const INITIAL_SALES = [{"id": "m11-1", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 1", "client": "فؤش", "rawWeight": 293.07, "shishna": 837.0, "karatType": "21", "netWeight": 280.34, "gramPrice": 6155.0, "calcAmount": 1725600.0, "paidAmount": 1725600.0, "notes": ""}, {"id": "m11-2", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 2", "client": "عمور", "rawWeight": 1386.82, "shishna": 872.0, "karatType": "21", "netWeight": 1382.06, "gramPrice": 6170.0, "calcAmount": 8527350.0, "paidAmount": 8527350.0, "notes": ""}, {"id": "m11-3", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 3", "client": "فؤش", "rawWeight": 291.77, "shishna": 840.0, "karatType": "21", "netWeight": 280.09, "gramPrice": 6160.0, "calcAmount": 1725410.0, "paidAmount": 1725410.0, "notes": ""}, {"id": "m11-4", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 4", "client": "فؤش", "rawWeight": 85.21, "shishna": 428.0, "karatType": "21", "netWeight": 41.67, "gramPrice": 6160.0, "calcAmount": 256750.0, "paidAmount": 256750.0, "notes": ""}, {"id": "m11-5", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 5", "client": "فؤش", "rawWeight": 270.61, "shishna": 547.0, "karatType": "21", "netWeight": 169.16, "gramPrice": 6160.0, "calcAmount": 1042085.0, "paidAmount": 1042085.0, "notes": ""}, {"id": "m11-6", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 6", "client": "فؤش", "rawWeight": 76.55, "shishna": 595.0, "karatType": "21", "netWeight": 52.05, "gramPrice": 6160.0, "calcAmount": 320652.0, "paidAmount": 320652.0, "notes": ""}, {"id": "m11-7", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 7", "client": "فؤش", "rawWeight": 58.71, "shishna": 621.0, "karatType": "21", "netWeight": 41.66, "gramPrice": 6160.0, "calcAmount": 256670.0, "paidAmount": 256670.0, "notes": ""}, {"id": "m11-8", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 8", "client": "فؤش", "rawWeight": 31.3, "shishna": 354.0, "karatType": "21", "netWeight": 12.66, "gramPrice": 6160.0, "calcAmount": 78000.0, "paidAmount": 78000.0, "notes": ""}, {"id": "m11-9", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 9", "client": "فؤش", "rawWeight": 212.65, "shishna": 846.0, "karatType": "21", "netWeight": 205.6, "gramPrice": 6160.0, "calcAmount": 1266510.0, "paidAmount": 1266510.0, "notes": ""}, {"id": "m11-10", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 10", "client": "عمور", "rawWeight": 518.17, "shishna": 829.0, "karatType": "21", "netWeight": 490.92, "gramPrice": 6155.0, "calcAmount": 3021670.0, "paidAmount": 3021670.0, "notes": ""}, {"id": "m11-11", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 11", "client": "فؤش", "rawWeight": 401.98, "shishna": 857.0, "karatType": "21", "netWeight": 393.71, "gramPrice": 6155.0, "calcAmount": 2423300.0, "paidAmount": 2423300.0, "notes": ""}, {"id": "m11-12", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 12", "client": "فؤش", "rawWeight": 6.43, "shishna": 842.0, "karatType": "21", "netWeight": 6.18, "gramPrice": 6155.0, "calcAmount": 38080.0, "paidAmount": 38080.0, "notes": ""}, {"id": "m11-13", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 13", "client": "عمور", "rawWeight": 357.34, "shishna": 774.0, "karatType": "21", "netWeight": 316.09, "gramPrice": 6155.0, "calcAmount": 1945550.0, "paidAmount": 1945550.0, "notes": ""}, {"id": "m11-14", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 14", "client": "", "rawWeight": 927.0, "shishna": 795.0, "karatType": "21", "netWeight": 842.24, "gramPrice": 6185.0, "calcAmount": 5209500.0, "paidAmount": 5209500.0, "notes": ""}, {"id": "m11-15", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 15", "client": "", "rawWeight": 74.29, "shishna": 875.0, "karatType": "21", "netWeight": 74.29, "gramPrice": 0.0, "calcAmount": 1236000.0, "paidAmount": 1236000.0, "notes": ""}, {"id": "m11-16", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 16", "client": "", "rawWeight": 68.8, "shishna": 825.0, "karatType": "21", "netWeight": 64.86, "gramPrice": 0.0, "calcAmount": 0.0, "paidAmount": 0.0, "notes": ""}, {"id": "m11-17", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 17", "client": "", "rawWeight": 118.0, "shishna": 856.0, "karatType": "21", "netWeight": 115.43, "gramPrice": 0.0, "calcAmount": 0.0, "paidAmount": 0.0, "notes": ""}, {"id": "m11-18", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 18", "client": "", "rawWeight": 63.29, "shishna": 924.0, "karatType": "21", "netWeight": 66.83, "gramPrice": 0.0, "calcAmount": 0.0, "paidAmount": 0.0, "notes": ""}, {"id": "m11-19", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 19", "client": "", "rawWeight": 11.8, "shishna": 252.0, "karatType": "21", "netWeight": 3.39, "gramPrice": 0.0, "calcAmount": 770650.0, "paidAmount": 770640.0, "notes": "200*180 ---124.8*175"}, {"id": "m11-20", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 20", "client": "", "rawWeight": 78.37, "shishna": 692.0, "karatType": "21", "netWeight": 61.97, "gramPrice": 6175.0, "calcAmount": 328725.0, "paidAmount": 382725.0, "notes": ""}, {"id": "m11-21", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 21", "client": "", "rawWeight": 1015.0, "shishna": 872.0, "karatType": "21", "netWeight": 1011.52, "gramPrice": 6205.0, "calcAmount": 6276480.0, "paidAmount": 6276480.0, "notes": ""}, {"id": "m11-22", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 22", "client": "", "rawWeight": 147.25, "shishna": 874.0, "karatType": "21", "netWeight": 147.08, "gramPrice": 6090.0, "calcAmount": 895730.0, "paidAmount": 895730.0, "notes": ""}, {"id": "m11-23", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 23", "client": "", "rawWeight": 199.5, "shishna": 863.0, "karatType": "21", "netWeight": 196.76, "gramPrice": 6080.0, "calcAmount": 1196325.12, "paidAmount": 1196325.12, "notes": ""}, {"id": "m11-24", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 24", "client": "", "rawWeight": 112.8, "shishna": 855.0, "karatType": "21", "netWeight": 110.22, "gramPrice": 0.0, "calcAmount": 976000.0, "paidAmount": 976000.0, "notes": ""}, {"id": "m11-25", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 25", "client": "", "rawWeight": 81.2, "shishna": 839.0, "karatType": "21", "netWeight": 77.85, "gramPrice": 0.0, "calcAmount": 0.0, "paidAmount": 0.0, "notes": ""}, {"id": "m11-26", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 26", "client": "", "rawWeight": 15.46, "shishna": 418.0, "karatType": "21", "netWeight": 7.38, "gramPrice": 0.0, "calcAmount": 214820.0, "paidAmount": 214820.0, "notes": ""}, {"id": "m11-27", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 27", "client": "", "rawWeight": 357.05, "shishna": 878.0, "karatType": "21", "netWeight": 358.27, "gramPrice": 6060.0, "calcAmount": 2171141.48, "paidAmount": 2171141.48, "notes": ""}, {"id": "m11-28", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 28", "client": "", "rawWeight": 267.19, "shishna": 872.0, "karatType": "21", "netWeight": 266.27, "gramPrice": 6045.0, "calcAmount": 1609625.85, "paidAmount": 1609625.85, "notes": ""}, {"id": "m11-29", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 29", "client": "", "rawWeight": 802.17, "shishna": 827.0, "karatType": "21", "netWeight": 758.16, "gramPrice": 6045.0, "calcAmount": 4583108.91, "paidAmount": 4583108.91, "notes": ""}, {"id": "m11-30", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 30", "client": "", "rawWeight": 998.14, "shishna": 927.0, "karatType": "21", "netWeight": 1057.45, "gramPrice": 0.0, "calcAmount": 0.0, "paidAmount": 6307806.0, "notes": ""}, {"id": "m11-31", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 31", "client": "", "rawWeight": 243.4, "shishna": 802.0, "karatType": "21", "netWeight": 223.09, "gramPrice": 5880.0, "calcAmount": 1311789.7, "paidAmount": 1311789.7, "notes": ""}, {"id": "m11-32", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 32", "client": "", "rawWeight": 47.05, "shishna": 377.0, "karatType": "21", "netWeight": 20.27, "gramPrice": 5880.0, "calcAmount": 119198.35, "paidAmount": 119198.35, "notes": ""}, {"id": "m11-33", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 33", "client": "", "rawWeight": 13.18, "shishna": 492.0, "karatType": "21", "netWeight": 7.41, "gramPrice": 5880.0, "calcAmount": 43576.24, "paidAmount": 43576.24, "notes": ""}, {"id": "m11-34", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 34", "client": "", "rawWeight": 168.52, "shishna": 903.0, "karatType": "21", "netWeight": 173.9, "gramPrice": 5897.0, "calcAmount": 1025490.0, "paidAmount": 1025490.0, "notes": ""}, {"id": "m11-35", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 35", "client": "", "rawWeight": 95.05, "shishna": 929.0, "karatType": "21", "netWeight": 100.91, "gramPrice": 5897.0, "calcAmount": 595101.32, "paidAmount": 595101.32, "notes": ""}, {"id": "m11-36", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 36", "client": "", "rawWeight": 3.03, "shishna": 700.0, "karatType": "21", "netWeight": 2.42, "gramPrice": 5897.0, "calcAmount": 14270.0, "paidAmount": 14270.0, "notes": ""}, {"id": "m11-37", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 37", "client": "", "rawWeight": 385.5, "shishna": 837.0, "karatType": "21", "netWeight": 368.75, "gramPrice": 5895.0, "calcAmount": 2173830.09, "paidAmount": 2173780.0, "notes": ""}, {"id": "m11-38", "month": "شهر 11", "week": "الأسبوع الأول", "day": "يوم السبت", "code": "بيعة 38", "client": "", "rawWeight": 246.28, "shishna": 740.0, "karatType": "21", "netWeight": 208.28, "gramPrice": 5895.0, "calcAmount": 1227825.42, "paidAmount": 1227810.0, "notes": ""}];
+  const INITIAL_WITHDRAWALS = [{"id": "emp-1", "month": "شهر 11", "date": "", "employee": "مصطفى طاهر", "reason": "", "amount": 35000.0, "notes": "مصطفى"}, {"id": "emp-2", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 10000.0, "notes": "سيراميك"}, {"id": "emp-3", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 9200.0, "notes": "طعام"}, {"id": "emp-4", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 5000.0, "notes": "باب مصفح وكياس"}, {"id": "emp-5", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1900.0, "notes": "شبكة"}, {"id": "emp-6", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1500.0, "notes": "طعام"}, {"id": "emp-7", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 1000.0, "notes": "مثبتات سلك للكاميرات"}, {"id": "emp-8", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 500.0, "notes": "غسالة"}, {"id": "emp-9", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 500.0, "notes": "بخور"}, {"id": "emp-10", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 150.0, "notes": "طعام"}, {"id": "emp-11", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 100.0, "notes": "قهوة"}, {"id": "emp-12", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 200.0, "notes": "طعام"}, {"id": "emp-13", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 400.0, "notes": "نظافة"}, {"id": "emp-14", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 275.0, "notes": "سكر"}, {"id": "emp-15", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 3030.0, "notes": ""}, {"id": "emp-16", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 380.0, "notes": ""}, {"id": "emp-17", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 520.0, "notes": ""}, {"id": "emp-18", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 50.0, "notes": ""}, {"id": "emp-19", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 3000.0, "notes": ""}, {"id": "emp-20", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 155.0, "notes": ""}, {"id": "emp-21", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 400.0, "notes": ""}, {"id": "emp-22", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 150.0, "notes": ""}, {"id": "emp-23", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 10000.0, "notes": ""}, {"id": "emp-24", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 610.0, "notes": ""}, {"id": "emp-25", "month": "شهر 11", "date": "", "employee": "", "reason": "", "amount": 200.0, "notes": ""}];
+  const INITIAL_SOLD = [];
+
+  const STORAGE_KEY = "gold_accounting_system_v37_offline";
+
+  let state = {
+    openingBalances: {
+      "شهر 1": 500000, "شهر 2": 0, "شهر 3": 0, "شهر 4": 0,
+      "شهر 5": 0, "شهر 6": 0, "شهر 7": 0, "شهر 8": 0,
+      "شهر 9": 0, "شهر 10": 0, "شهر 11": 75000000, "شهر 12": 0
+    },
+    sales: INITIAL_SALES,
+    casting: [],
+    soldGold: INITIAL_SOLD,
+    foundryIn: [],
+    foundryOut: [],
+    withdrawals: INITIAL_WITHDRAWALS
+  };
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state = Object.assign(state, parsed);
+        if (!state.soldGold) state.soldGold = [];
+      }
+    } catch (e) {
+      console.error("Failed to load local storage", e);
+    }
+  }
+
+  function saveState(msg) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (msg) showToast(msg);
+    } catch (e) {
+      alert("تعذر الحفظ المحلي: " + e.message);
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = "✅ " + msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  function fmt(num) {
+    return Number(num || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function calcNetWeight(raw, shishna, karatType) {
+    if (!raw || raw <= 0) return 0;
+    const is21 = (karatType === "21" || karatType === "على 21");
+    const sh = shishna && shishna > 0 ? shishna : (is21 ? 875 : 1000);
+    const divisor = is21 ? 875 : 1000;
+    const val = (raw * sh) / divisor;
+    return Math.floor((val + 1e-9) * 100) / 100;
+  }
+
+  function initSelects() {
+    const ids = ["monthSelect", "cMonth", "sgMonth", "fiMonth", "foMonth", "wMonth"];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = MONTHS.map(m => `<option value="${m}" ${m === "شهر 11" ? "selected" : ""}>${m}</option>`).join("");
+    });
+  }
+
+  // Navigation Tabs
+  document.querySelectorAll(".nav-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const target = btn.getAttribute("data-tab");
+      document.querySelectorAll("main > section").forEach(sec => sec.classList.add("hidden"));
+      document.getElementById("tab-" + target).classList.remove("hidden");
+      renderAll();
+    });
+  });
+
+  // Form calculations
+  function recalcPurchaseForm() {
+    const raw = parseFloat(document.getElementById("pRawWeight").value) || 0;
+    const sh = parseFloat(document.getElementById("pShishna").value) || 0;
+    const kt = document.getElementById("pKaratType").value;
+    const price = parseFloat(document.getElementById("pGramPrice").value) || 0;
+
+    const net = calcNetWeight(raw, sh, kt);
+    document.getElementById("pNetWeight").value = net ? net.toFixed(2) : "";
+
+    if (net > 0 && price > 0) {
+      const total = Math.round(net * price);
+      document.getElementById("pCalcAmount").value = total;
+      document.getElementById("pPaidAmount").value = total;
+    }
+  }
+
+  function syncPaidWithCalc() {
+    const calcVal = parseFloat(document.getElementById("pCalcAmount").value) || 0;
+    document.getElementById("pPaidAmount").value = calcVal;
+  }
+
+  function addPurchase(e) {
+    e.preventDefault();
+    const month = document.getElementById("monthSelect").value;
+    const monthSales = state.sales.filter(s => s.month === month);
+    const nextNum = monthSales.length + 1;
+
+    const raw = parseFloat(document.getElementById("pRawWeight").value) || 0;
+    const sh = parseFloat(document.getElementById("pShishna").value) || 875;
+    const kt = document.getElementById("pKaratType").value;
+    const net = calcNetWeight(raw, sh, kt);
+    const price = parseFloat(document.getElementById("pGramPrice").value) || 0;
+    const calcAmt = parseFloat(document.getElementById("pCalcAmount").value) || Math.round(net * price);
+    const paidAmt = parseFloat(document.getElementById("pPaidAmount").value) || 0;
+
+    state.sales.push({
+      id: "sale-" + Date.now(),
+      month,
+      week: document.getElementById("pWeek").value,
+      day: document.getElementById("pDay").value.trim() || "يوم السبت",
+      code: "بيعة " + nextNum,
+      client: document.getElementById("pClient").value.trim(),
+      rawWeight: raw,
+      shishna: sh,
+      karatType: kt,
+      netWeight: net,
+      gramPrice: price,
+      calcAmount: calcAmt,
+      paidAmount: paidAmt,
+      notes: document.getElementById("pNotes").value.trim()
+    });
+
+    document.getElementById("pClient").value = "";
+    document.getElementById("pRawWeight").value = "";
+    document.getElementById("pNetWeight").value = "";
+    document.getElementById("pCalcAmount").value = "";
+    document.getElementById("pPaidAmount").value = "";
+    document.getElementById("pNotes").value = "";
+
+    saveState("تم تسجيل البيعة وتحديث رصيد الخزنة");
+    renderAll();
+  }
+
+  function deletePurchase(id) {
+    if (!confirm("هل أنت متأكد من حذف هذه البيعة؟")) return;
+    state.sales = state.sales.filter(s => s.id !== id);
+    saveState("تم حذف البيعة");
+    renderAll();
+  }
+
+  function clearCurrentMonthSales() {
+    const month = document.getElementById("monthSelect").value;
+    if (!confirm(`هل تريد مسح جميع بيعات ${month}؟`)) return;
+    state.sales = state.sales.filter(s => s.month !== month);
+    saveState("تم مسح بيانات الشهر");
+    renderAll();
+  }
+
+  function getMonthStats(month) {
+    const sales = state.sales.filter(s => s.month === month);
+    const rawWeight = sales.reduce((acc, s) => acc + (Number(s.rawWeight) || 0), 0);
+    const netWeight = sales.reduce((acc, s) => acc + (Number(s.netWeight) || 0), 0);
+    const totalCalc = sales.reduce((acc, s) => acc + (Number(s.calcAmount) || 0), 0);
+    const totalPaid = sales.reduce((acc, s) => acc + (Number(s.paidAmount) || 0), 0);
+
+    const fIn = state.foundryIn.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const fOut = state.foundryOut.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const wOut = state.withdrawals.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.amount) || 0), 0);
+    const castNet = state.casting.filter(x => x.month === month).reduce((acc, x) => acc + (Number(x.netWeight) || 0), 0);
+
+    const opening = Number(state.openingBalances[month] || 0);
+    const remaining = opening + fIn - totalPaid - wOut - fOut;
+
+    return { sales, rawWeight, netWeight, totalCalc, totalPaid, fIn, fOut, wOut, castNet, opening, remaining };
+  }
+
+  function updateOpeningBalance() {
+    const month = document.getElementById("monthSelect").value;
+    state.openingBalances[month] = parseFloat(document.getElementById("openingBalanceInput").value) || 0;
+    saveState("تم تحديث الرصيد الافتتاحي");
+    renderAll();
+  }
+
+  function carryOverFromPrevMonth() {
+    const month = document.getElementById("monthSelect").value;
+    const idx = MONTHS.indexOf(month);
+    if (idx <= 0) {
+      alert("هذا هو الشهر الأول في السنة.");
+      return;
+    }
+    const prevMonth = MONTHS[idx - 1];
+    const prevStats = getMonthStats(prevMonth);
+    state.openingBalances[month] = prevStats.remaining;
+    saveState(`تم ترحيل الرصيد (${fmt(prevStats.remaining)}) من ${prevMonth}`);
+    renderAll();
+  }
+
+  function renderPurchasesTable() {
+    const month = document.getElementById("monthSelect").value;
+    const weekF = document.getElementById("weekFilter").value;
+    const q = document.getElementById("searchPurchase").value.trim().toLowerCase();
+
+    const stats = getMonthStats(month);
+    document.getElementById("openingBalanceInput").value = stats.opening;
+    document.getElementById("kpiMonthTitle").textContent = month;
+    document.getElementById("tableMonthLabel").textContent = month;
+
+    document.getElementById("kpiOpening").textContent = fmt(stats.opening) + " ج.م";
+    document.getElementById("kpiRemaining").textContent = fmt(stats.remaining) + " ج.م";
+    document.getElementById("kpiNetWeight").textContent = fmt(stats.netWeight) + " جم";
+    document.getElementById("kpiCountSales").textContent = `عدد البيعات: ${stats.sales.length}`;
+    document.getElementById("kpiRawWeight").textContent = fmt(stats.rawWeight) + " جم";
+    document.getElementById("kpiTotalPaidSub").textContent = `إجمالي المنصرف للذهب: ${fmt(stats.totalPaid)} ج.م`;
+    document.getElementById("kpiExpensesTotal").textContent = fmt(stats.wOut + stats.fOut) + " ج.م";
+    document.getElementById("kpiFoundryInSub").textContent = `محصلات المسبك: +${fmt(stats.fIn)} ج.م`;
+
+    let filtered = stats.sales;
+    if (weekF !== "ALL") filtered = filtered.filter(s => s.week === weekF);
+    if (q) {
+      filtered = filtered.filter(s =>
+        (s.client && s.client.toLowerCase().includes(q)) ||
+        (s.code && s.code.toLowerCase().includes(q)) ||
+        (s.notes && s.notes.toLowerCase().includes(q))
+      );
+    }
+
+    const tbody = document.getElementById("purchasesTbody");
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="12" style="padding:24px; color:var(--text-muted);">لا توجد بيعات مسجلة في هذا العرض</td></tr>`;
+    } else {
+      tbody.innerHTML = filtered.map((s, idx) => `
+        <tr>
+          <td><span class="badge badge-gold">${s.code || ('بيعة ' + (idx+1))}</span></td>
+          <td>${s.week || ''} - ${s.day || ''}</td>
+          <td style="font-weight:700;">${s.client || '—'}</td>
+          <td class="num">${fmt(s.rawWeight)}</td>
+          <td class="num">${s.shishna}</td>
+          <td><span class="badge">على ${s.karatType}</span></td>
+          <td class="num" style="color:var(--gold-light); font-weight:700;">${fmt(s.netWeight)}</td>
+          <td class="num">${fmt(s.gramPrice)}</td>
+          <td class="num">${fmt(s.calcAmount)}</td>
+          <td class="num" style="color:var(--green); font-weight:700;">${fmt(s.paidAmount)}</td>
+          <td style="color:var(--text-muted); font-size:0.8rem;">${s.notes || ''}</td>
+          <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deletePurchase('${s.id}')">✕</button></td>
+        </tr>
+      `).join("");
+    }
+
+    const sumRaw = filtered.reduce((a, b) => a + (Number(b.rawWeight) || 0), 0);
+    const sumNet = filtered.reduce((a, b) => a + (Number(b.netWeight) || 0), 0);
+    const sumCalc = filtered.reduce((a, b) => a + (Number(b.calcAmount) || 0), 0);
+    const sumPaid = filtered.reduce((a, b) => a + (Number(b.paidAmount) || 0), 0);
+
+    document.getElementById("purchasesTfoot").innerHTML = `
+      <tr style="background:var(--surface-2); font-weight:800;">
+        <td colspan="3">الإجمالي المعروض (${filtered.length} بيعة)</td>
+        <td class="num">${fmt(sumRaw)}</td>
+        <td>—</td>
+        <td>—</td>
+        <td class="num" style="color:var(--gold-light);">${fmt(sumNet)}</td>
+        <td>—</td>
+        <td class="num">${fmt(sumCalc)}</td>
+        <td class="num" style="color:var(--green);">${fmt(sumPaid)}</td>
+        <td colspan="2"></td>
+      </tr>
+    `;
+  }
+
+  // Casting
+  function recalcCastingForm() {
+    const raw = parseFloat(document.getElementById("cRaw").value) || 0;
+    const sh = parseFloat(document.getElementById("cShishna").value) || 0;
+    const kt = document.getElementById("cKarat").value;
+    const net = calcNetWeight(raw, sh, kt);
+    document.getElementById("cNet").value = net ? net.toFixed(2) : "";
+  }
+
+  function addCasting(e) {
+    e.preventDefault();
+    const raw = parseFloat(document.getElementById("cRaw").value) || 0;
+    const sh = parseFloat(document.getElementById("cShishna").value) || 875;
+    const kt = document.getElementById("cKarat").value;
+    const net = calcNetWeight(raw, sh, kt);
+
+    state.casting.push({
+      id: "cast-" + Date.now(),
+      month: document.getElementById("cMonth").value,
+      date: document.getElementById("cDate").value,
+      rawWeight: raw,
+      shishna: sh,
+      karatType: kt,
+      netWeight: net,
+      notes: document.getElementById("cNotes").value.trim()
+    });
+    document.getElementById("cRaw").value = "";
+    document.getElementById("cNet").value = "";
+    document.getElementById("cNotes").value = "";
+    saveState("تم تسجيل حركة الذهب المسبوك");
+    renderAll();
+  }
+
+  function deleteCasting(id) {
+    state.casting = state.casting.filter(x => x.id !== id);
+    saveState("تم الحذف");
+    renderAll();
+  }
+
+  function renderCasting() {
+    const tbody = document.getElementById("castingTbody");
+    const totalNet = state.casting.reduce((a, b) => a + (Number(b.netWeight) || 0), 0);
+    document.getElementById("castingSummaryBadge").textContent = `إجمالي الصافي: ${fmt(totalNet)} جرام`;
+
+    if (state.casting.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد سبائك مسجلة بعد</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = state.casting.map((c, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="badge">${c.month}</span></td>
+        <td>${c.date || '—'}</td>
+        <td class="num">${fmt(c.rawWeight)}</td>
+        <td class="num">${c.shishna}</td>
+        <td>على ${c.karatType}</td>
+        <td class="num" style="color:var(--gold-light); font-weight:700;">${fmt(c.netWeight)}</td>
+        <td>${c.notes || ''}</td>
+        <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deleteCasting('${c.id}')">✕</button></td>
+      </tr>
+    `).join("");
+  }
+
+  // Sold Gold (الذهب المباع)
+  function recalcSoldForm() {
+    const w = parseFloat(document.getElementById("sgWeight").value) || 0;
+    const sp = parseFloat(document.getElementById("sgSellPrice").value) || 0;
+    const total = w * sp;
+    document.getElementById("sgTotalSell").value = total ? total.toFixed(2) : "";
+  }
+
+  function addSoldGold(e) {
+    e.preventDefault();
+    const w = parseFloat(document.getElementById("sgWeight").value) || 0;
+    const bp = parseFloat(document.getElementById("sgBuyPrice").value) || 0;
+    const sp = parseFloat(document.getElementById("sgSellPrice").value) || 0;
+    const total = w * sp;
+
+    state.soldGold.push({
+      id: "sold-" + Date.now(),
+      month: document.getElementById("sgMonth").value,
+      date: document.getElementById("sgDate").value,
+      name: document.getElementById("sgName").value.trim(),
+      weight: w,
+      buyPrice: bp,
+      sellPrice: sp,
+      totalSell: total,
+      notes: document.getElementById("sgNotes").value.trim()
+    });
+
+    document.getElementById("sgName").value = "";
+    document.getElementById("sgWeight").value = "";
+    document.getElementById("sgBuyPrice").value = "";
+    document.getElementById("sgSellPrice").value = "";
+    document.getElementById("sgTotalSell").value = "";
+    document.getElementById("sgNotes").value = "";
+    saveState("تم تسجيل حركة الذهب المباع بنجاح");
+    renderAll();
+  }
+
+  function deleteSoldGold(id) {
+    state.soldGold = state.soldGold.filter(x => x.id !== id);
+    saveState("تم حذف حركة البيع");
+    renderAll();
+  }
+
+  function renderSoldGold() {
+    const tbody = document.getElementById("soldTbody");
+    const list = state.soldGold;
+    const totalSellSum = list.reduce((a, b) => a + (Number(b.totalSell) || 0), 0);
+    const totalWeightSum = list.reduce((a, b) => a + (Number(b.weight) || 0), 0);
+    document.getElementById("soldSummaryBadge").textContent = `إجمالي إيرادات البيع: ${fmt(totalSellSum)} ج.م`;
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; color:var(--text-muted);">لا توجد حركات ذهب مباع مسجلة بعد</td></tr>`;
+      document.getElementById("soldTfoot").innerHTML = "";
+      return;
+    }
+
+    tbody.innerHTML = list.map((s, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="badge">${s.month}</span></td>
+        <td>${s.date || '—'}</td>
+        <td style="font-weight:700;">${s.name}</td>
+        <td class="num">${fmt(s.weight)}</td>
+        <td class="num">${fmt(s.buyPrice)}</td>
+        <td class="num">${fmt(s.sellPrice)}</td>
+        <td class="num" style="color:var(--green); font-weight:700;">${fmt(s.totalSell)}</td>
+        <td>${s.notes || ''}</td>
+        <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deleteSoldGold('${s.id}')">✕</button></td>
+      </tr>
+    `).join("");
+
+    document.getElementById("soldTfoot").innerHTML = `
+      <tr style="background:var(--surface-2); font-weight:800;">
+        <td colspan="4">الإجمالي العام للذهب المباع</td>
+        <td class="num">${fmt(totalWeightSum)} جم</td>
+        <td colspan="2">—</td>
+        <td class="num" style="color:var(--green);">${fmt(totalSellSum)} ج.م</td>
+        <td colspan="2"></td>
+      </tr>
+    `;
+  }
+
+  // Foundry In & Out
+  function addLedgerItem(e, type) {
+    e.preventDefault();
+    const prefix = type === "foundryIn" ? "fi" : "fo";
+    state[type].push({
+      id: prefix + "-" + Date.now(),
+      month: document.getElementById(prefix + "Month").value,
+      date: document.getElementById(prefix + "Date").value,
+      title: document.getElementById(prefix + "Title").value.trim(),
+      party: document.getElementById(prefix + "Party").value.trim(),
+      amount: parseFloat(document.getElementById(prefix + "Amount").value) || 0,
+      notes: document.getElementById(prefix + "Notes").value.trim()
+    });
+    document.getElementById(prefix + "Title").value = "";
+    document.getElementById(prefix + "Party").value = "";
+    document.getElementById(prefix + "Amount").value = "";
+    document.getElementById(prefix + "Notes").value = "";
+    saveState("تم الحفظ بنجاح");
+    renderAll();
+  }
+
+  function deleteLedgerItem(type, id) {
+    state[type] = state[type].filter(x => x.id !== id);
+    saveState("تم الحذف");
+    renderAll();
+  }
+
+  function renderLedger(type) {
+    const prefix = type === "foundryIn" ? "fi" : "fo";
+    const list = state[type];
+    const total = list.reduce((a, b) => a + (Number(b.amount) || 0), 0);
+    document.getElementById(prefix + "TotalBadge").textContent = `الإجمالي: ${fmt(total)} ج.م`;
+
+    const tbody = document.getElementById(prefix + "Tbody");
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:20px; color:var(--text-muted);">لا توجد سجلات مسجلة</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = list.map((item, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="badge">${item.month}</span></td>
+        <td>${item.date || '—'}</td>
+        <td style="font-weight:700;">${item.title}</td>
+        <td>${item.party || '—'}</td>
+        <td class="num" style="font-weight:700; color:${type === 'foundryIn' ? 'var(--green)' : 'var(--red)'};">${fmt(item.amount)}</td>
+        <td>${item.notes || ''}</td>
+        <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deleteLedgerItem('${type}', '${item.id}')">✕</button></td>
+      </tr>
+    `).join("");
+  }
+
+  // Withdrawals
+  function addWithdrawal(e) {
+    e.preventDefault();
+    state.withdrawals.push({
+      id: "emp-" + Date.now(),
+      month: document.getElementById("wMonth").value,
+      date: document.getElementById("wDate").value,
+      employee: document.getElementById("wEmployee").value.trim(),
+      reason: document.getElementById("wReason").value.trim(),
+      amount: parseFloat(document.getElementById("wAmount").value) || 0,
+      notes: document.getElementById("wNotes").value.trim()
+    });
+    document.getElementById("wEmployee").value = "";
+    document.getElementById("wReason").value = "";
+    document.getElementById("wAmount").value = "";
+    document.getElementById("wNotes").value = "";
+    saveState("تم تسجيل السحب");
+    renderAll();
+  }
+
+  function deleteWithdrawal(id) {
+    state.withdrawals = state.withdrawals.filter(x => x.id !== id);
+    saveState("تم الحذف");
+    renderAll();
+  }
+
+  function renderWithdrawals() {
+    const total = state.withdrawals.reduce((a, b) => a + (Number(b.amount) || 0), 0);
+    document.getElementById("wTotalBadge").textContent = `الإجمالي: ${fmt(total)} ج.م`;
+
+    const tbody = document.getElementById("wTbody");
+    if (state.withdrawals.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:20px; color:var(--text-muted);">لا توجد مسحوبات</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = state.withdrawals.map((w, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span class="badge">${w.month}</span></td>
+        <td>${w.date || '—'}</td>
+        <td style="font-weight:700;">${w.employee || '—'}</td>
+        <td>${w.reason || '—'}</td>
+        <td class="num" style="color:var(--red); font-weight:700;">${fmt(w.amount)}</td>
+        <td>${w.notes || ''}</td>
+        <td class="no-print"><button class="btn btn-red" style="padding:4px 8px;" onclick="deleteWithdrawal('${w.id}')">✕</button></td>
+      </tr>
+    `).join("");
+  }
+
+  // Annual Summary
+  function renderAnnual() {
+    let tRaw = 0, tNet = 0, tPaid = 0, tCast = 0, tFIn = 0, tFOut = 0, tWOut = 0;
+    const rowsHtml = MONTHS.map(m => {
+      const st = getMonthStats(m);
+      tRaw += st.rawWeight;
+      tNet += st.netWeight;
+      tPaid += st.totalPaid;
+      tCast += st.castNet;
+      tFIn += st.fIn;
+      tFOut += st.fOut;
+      tWOut += st.wOut;
+      return `
+        <tr>
+          <td style="font-weight:700; color:var(--gold-light);">${m}</td>
+          <td class="num">${fmt(st.rawWeight)}</td>
+          <td class="num">${fmt(st.netWeight)}</td>
+          <td class="num">${fmt(st.totalPaid)}</td>
+          <td class="num">${fmt(st.castNet)}</td>
+          <td class="num" style="color:var(--green);">${fmt(st.fIn)}</td>
+          <td class="num" style="color:var(--red);">${fmt(st.fOut)}</td>
+          <td class="num" style="color:var(--red);">${fmt(st.wOut)}</td>
+          <td class="num" style="font-weight:700;">${fmt(st.remaining)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    document.getElementById("annualTbody").innerHTML = rowsHtml;
+    const m12Rem = getMonthStats("شهر 12").remaining;
+    document.getElementById("annualTfoot").innerHTML = `
+      <tr style="background:var(--surface-2); font-weight:800;">
+        <td>إجمالي السنة بالكامل</td>
+        <td class="num">${fmt(tRaw)}</td>
+        <td class="num" style="color:var(--gold-light);">${fmt(tNet)}</td>
+        <td class="num">${fmt(tPaid)}</td>
+        <td class="num">${fmt(tCast)}</td>
+        <td class="num" style="color:var(--green);">${fmt(tFIn)}</td>
+        <td class="num" style="color:var(--red);">${fmt(tFOut)}</td>
+        <td class="num" style="color:var(--red);">${fmt(tWOut)}</td>
+        <td class="num" style="color:var(--green);">${fmt(m12Rem)}</td>
+      </tr>
+    `;
+  }
+
+  // Quick Calculators
+  function runQuickCalc() {
+    const w = parseFloat(document.getElementById("qcWeight").value) || 0;
+    const sh = parseFloat(document.getElementById("qcShishna").value) || 0;
+    const k = document.getElementById("qcKarat").value;
+    const p = parseFloat(document.getElementById("qcPrice").value) || 0;
+    const div = k === "21" ? 875 : (k === "18" ? 750 : 1000);
+    const net = w > 0 && sh > 0 ? Math.floor(((w * sh) / div + 1e-9) * 100) / 100 : 0;
+    const total = Math.round(net * p);
+    document.getElementById("qcNetOut").textContent = `الوزن المحيف: ${fmt(net)} جرام`;
+    document.getElementById("qcMoneyOut").textContent = `الإجمالي: ${fmt(total)} ج.م`;
+  }
+
+  function runMathExpr() {
+    const expr = document.getElementById("mathExpr").value.replace(/[^0-9+\-*/().\s]/g, "");
+    try {
+      if (!expr.trim()) {
+        document.getElementById("mathExprRes").textContent = "الناتج: 0.00";
+        return;
+      }
+      const val = Function('"use strict";return (' + expr + ')')();
+      document.getElementById("mathExprRes").textContent = `الناتج: ${fmt(val)}`;
+    } catch (e) {
+      document.getElementById("mathExprRes").textContent = "صيغة غير مكتملة...";
+    }
+  }
+
+  // Backup & Export
+  function exportBackupJSON() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `نسخة_احتياطية_حسابات_الذهب_v37_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    showToast("تم تنزيل النسخة الاحتياطية");
+  }
+
+  function importBackupJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const imported = JSON.parse(evt.target.result);
+        if (imported && imported.sales) {
+          state = imported;
+          if (!state.soldGold) state.soldGold = [];
+          saveState("تمت استعادة البيانات بنجاح");
+          renderAll();
+        } else {
+          alert("ملف النسخة الاحتياطية غير صالح.");
+        }
+      } catch (err) {
+        alert("خطأ في قراءة الملف: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function exportCSV() {
+    const month = document.getElementById("monthSelect").value;
+    const stats = getMonthStats(month);
+    const headers = ["م", "الشهر", "الأسبوع", "اليوم", "العميل", "الوزن الأولي", "عيار الشيشنة", "نوع التحييف", "الوزن المحيف الصافي", "سعر الجرام", "المبلغ المحسوب", "المدفوع فعلياً", "ملاحظات"];
+    const rows = stats.sales.map(s => [
+      s.code, s.month, s.week, s.day, s.client, s.rawWeight, s.shishna, s.karatType, s.netWeight, s.gramPrice, s.calcAmount, s.paidAmount, s.notes
+    ]);
+    const csv = "\uFEFF" + [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `تقرير_مشتريات_الذهب_${month}.csv`;
+    a.click();
+  }
+
+  function renderAll() {
+    renderPurchasesTable();
+    renderCasting();
+    renderSoldGold();
+    renderLedger("foundryIn");
+    renderLedger("foundryOut");
+    renderWithdrawals();
+    renderAnnual();
+  }
+
+  loadState();
+  initSelects();
+  renderAll();
+</script>
+</body>
+</html>
